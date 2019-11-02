@@ -1,0 +1,142 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <assert.h>
+#include <x86intrin.h>
+#include <chrono>
+
+#define LINUX
+#define CACHE_LINE_SIZE 64*1024
+#define RESTRICT __restrict__
+
+#ifdef WINDOWS
+#include <windows.h>
+#include <mmsystem.h>
+#elif defined(LINUX)
+#include <sys/time.h>
+#include <unistd.h>
+#else
+#error it can only be compiled under windows or unix
+#endif
+
+//#define comp
+#define SLEEP_TIME 100
+#define RUNS /*0x10000000*/(2*256+129)* 256*4
+#define MEASURE_TYPE microseconds
+#include <vector>
+#include <iostream>
+std::vector<double> output[120]; //First 8 are benchmark, last 2 random_benchmark. First for are always algo1, then algo2
+
+void test1(volatile char* sta, size_t li){
+    unsigned c_s = li * CACHE_LINE_SIZE;
+	for (unsigned int i = 0; i != c_s; i += CACHE_LINE_SIZE) {
+		_mm_prefetch((char*)sta + i, _MM_HINT_NTA); 
+	}
+}
+template<size_t li>
+void test2(volatile char* sta){
+    unsigned c_s = li * CACHE_LINE_SIZE;
+	for (unsigned int i = 0; i != c_s; i += CACHE_LINE_SIZE) {
+		_mm_prefetch((char*)sta + i, _MM_HINT_NTA); 
+	}
+}
+void test3(volatile char* sta, size_t li){
+    test2<32>(sta);
+}
+
+int main(){
+    char* p = (char*)21;
+    size_t li = 22;
+    unsigned long long t1,t2,t3;
+
+//========================================================
+    auto sta = std::chrono::high_resolution_clock::now();
+    for(int iter=0; iter!=1e5; iter++){
+#ifdef comp
+    asm volatile( //GCC
+        "sall    $16, %[li]\n"           //li*CACHE_LINE_SIZE
+        "je      .L21\n"                 //li=0 0=> Ende
+        "xorl    %%eax, %%eax\n"         //i=0
+".L16:\n"
+        "movl    %%eax, %%edx\n"         //off=i
+        "addl    $65536, %%eax\n"        //i+=CACHE_LINE_SIZE
+        "prefetchnta     (%[p],%%rdx)\n" //prefetch(p+off)
+        "cmpl    %%eax, %[li]\n"         //if(i==li*CACHE_LINE_SIZE)
+        "jne     .L16\n"                 //else jmp loopstart
+".L21:"
+        : 
+        : [li] "r" (li), [p] "r" (p)
+        : "%rax", "%rdx"
+    );
+#endif
+    }
+    auto sto = std::chrono::high_resolution_clock::now();
+    t1 = std::chrono::duration_cast<std::chrono::microseconds>(sto-sta).count();
+//========================================================
+
+//========================================================
+    sta = std::chrono::high_resolution_clock::now();
+    for(int iter=0; iter!=1e5; iter++){
+#ifdef comp
+    asm volatile( //CLANG
+        "shll    $16, %[li]\n" //li*CACHE_SIZE
+        "je      .LBB1_6\n"    //if(!li) return
+        "addl    $-65536, %[li]\n" //(li-1)*CACHE_SIZE
+        "movl    %[li], %%ecx\n" //ecx=(li-1)*CACHE_SIZE
+        "shrl    $16, %%ecx\n"   //ecx=li-1
+        "addl    $1, %%ecx\n"    //ecx=li
+        "movl    %%ecx, %%eax\n"  //eax=ecx=li
+        "andl    $7, %%eax\n"    //eax=li & 0b111
+        "cmpl    $458752, %[li]\n" //li==8
+        "jae     .LBB1_7\n"        //li>=8
+        "xorl    %%ecx, %%ecx\n"     //ecx=0
+        "testl   %%eax, %%eax\n"     //eax==0
+        "jne     .LBB1_4\n"        //li=li & 0b111=eax!=0, li<8
+        "jmp     .LBB1_6\n"        //if(!li) return
+".LBB1_7:\n"                       //Wenn li>=8
+        "leaq    458752(%[p]), %%rdx\n" //rdx=p+6*CACHE_SIZE
+        "movl    $1, %[li]\n"           //[li]=1
+        "subl    %%ecx, %[li]\n"         //[li]=1-(p+6*CACHE_SIZE)
+        "leal    (%%rax,%[li]), %[li]\n" //[li]=1-(p+6*CACHE_SIZE)+li & 0b111
+        "addl    $-1, %[li]\n"           //[li]=li&0b111-(p+6*CACHE_SIZE)
+        "xorl    %%ecx, %%ecx\n"          //ecx=0
+".LBB1_8:\n"
+        "prefetchnta     -458752(%%rdx,%%rcx)\n" //p+0*CACHE_SIZE+rcx
+        "prefetchnta     -393216(%%rdx,%%rcx)\n" //p+1*CACHE_SIZE+rcx
+        "prefetchnta     -327680(%%rdx,%%rcx)\n" //p+2*CACHE_SIZE+rcx
+        "prefetchnta     -262144(%%rdx,%%rcx)\n" //p+3*CACHE_SIZE+rcx
+        "prefetchnta     -196608(%%rdx,%%rcx)\n" //p+4*CACHE_SIZE+rcx
+        "prefetchnta     -131072(%%rdx,%%rcx)\n" //p+5*CACHE_SIZE+rcx
+        "prefetchnta     -65536(%%rdx,%%rcx)\n" //p+6*CACHE_SIZE+rcx
+        "prefetchnta     (%%rdx,%%rcx)\n"       //p+7*CACHE_SIZe+rcx
+        "addq    $524288, %%rcx\n"              //rcx += 8*CACHE_SIZE
+        "addl    $8, %[li]\n"   //[li]+=8
+        "jne     .LBB1_8\n"     //while([li]!=0)
+        "testl   %%eax, %%eax\n" //eax=li&0b111 ==0
+        "je      .LBB1_6\n"      //End
+".LBB1_4:\n"     //Tail which could not be unrolled, li<8
+        "addq    %%rcx, %[p]\n"
+".LBB1_5:\n"
+        "prefetchnta     (%[p])\n"
+        "addq    $65536, %[p]\n"
+        "addl    $-1, %%eax\n"
+        "jne     .LBB1_5\n"
+".LBB1_6:\n"
+        : 
+        : [li] "r" (li), [p] "r" (p)
+        : "%rax", "%rcx", "%rdx"
+    );
+#endif
+    }
+    sto = std::chrono::high_resolution_clock::now();
+    t2 = std::chrono::duration_cast<std::chrono::microseconds>(sto-sta).count();
+//========================================================
+
+
+
+
+
+    std::cout<<t1<<std::endl;
+    return 0;
+}

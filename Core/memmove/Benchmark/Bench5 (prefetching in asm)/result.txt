@@ -1,0 +1,2 @@
+Bei unroll=8 und ohne Cache-flush sind 8 Cache-Lines optimal, sowie lddqu und store
+Bei unroll=8 und mit  Cache-flush sind 4 Cache-Lines optimal, sowie lddqu und stream

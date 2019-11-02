@@ -1,0 +1,16 @@
+Every folder implements a concept. It must contain the implementation and interface. 
+If an external library is used, it's zip shall be kept in the folder.
+
+Every folder has to have an include file with .inc ending. It sets the relevant makros to determine,
+which implementation for the methods should be used.
+
+To determine this makros, every folder has to have an config.cpp file, which implements tests and runs them.
+Test's are:
+	1.: Check for UB, memory leaks,... in the tests                                   (done with sanatizers)
+	2.: Check if the tests return correct results for some inputs               
+	3.: Bench the tests, find the fastest and set the correct makros in the .inc file
+
+For this, it uses the global misc.cpp file which implements methods to benchmark functions and generate the include-files.
+There should also be a global configure.exe which sets all configurations for the indiviual folders.
+
+The benchmarks are analysed with VTune and Amplifier and for debugging, gdb is used.

@@ -1,0 +1,520 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <assert.h>
+#include <x86intrin.h>
+#include <chrono>
+#include <boost/preprocessor/arithmetic/mul.hpp>
+
+#define LINUX
+#define CACHE_LINE_SIZE 64
+#define RESTRICT __restrict__
+
+#ifdef WINDOWS
+#include <windows.h>
+#include <mmsystem.h>
+#elif defined(LINUX)
+#include <sys/time.h>
+#include <unistd.h>
+#else
+#error it can only be compiled under windows or unix
+#endif
+
+#define comp
+#define SLEEP_TIME 100
+#define RUNS /*0x10000000*/(2*256+129)* 256*4
+#define MEASURE_TYPE microseconds
+#include <vector>
+#include <iostream>
+std::vector<double> output[120]; //First 8 are benchmark, last 2 random_benchmark. First for are always algo1, then algo2
+
+void test(char* sta){
+    for(int i=0; i!=16*CACHE_LINE_SIZE; i+=CACHE_LINE_SIZE)
+        _mm_prefetch(sta+i, _MM_HINT_NTA);
+}
+
+
+#define prefetch8();\
+        "prefetchnta     (%[sta])\n"\
+        "prefetchnta     64(%[sta])\n"\
+        "prefetchnta     128(%[sta])\n"\
+        "prefetchnta     192(%[sta])\n"\
+        "prefetchnta     256(%[sta])\n"\
+        "prefetchnta     320(%[sta])\n"\
+        "prefetchnta     384(%[sta])\n"\
+        "prefetchnta     448(%[sta])\n"\
+
+#define prefetcher(z,i,data)\
+    "prefetchnta    " BOOST_PP_STRINGIZE(BOOST_PP_MUL(64,i))"(%[sta])\n"
+#define loader(z,i,data)\
+    #data" " BOOST_PP_STRINGIZE(BOOST_PP_MUL(32,i))"(%[sta],%%r8), %%ymm"#i"\n"
+
+//Unroll=8
+//_l = vmovups, _s = vmovaps
+//_i is a jumplabel-counter
+//_p is the number of cache lines
+//_n is the number of loads and stores
+#define test_makro(_sta,_sto,_SIZE, _l, _s, _i, _p, _n);\
+    asm volatile(\
+        BOOST_PP_REPEAT(_p, prefetcher, 0)\
+        "xorq    %%r8, %%r8\n"\
+        "leaq " BOOST_PP_STRINGIZE(BOOST_PP_MUL(64,_p)) "(%[sta]), %%rax\n"\
+".loop_start"#_i":\n"\
+        #_l" (%[sta],%%r8), %%ymm0\n"\
+        #_l" 32(%[sta],%%r8), %%ymm1\n"\
+        #_l" 64(%[sta],%%r8), %%ymm2\n"\
+        #_l" 96(%[sta],%%r8), %%ymm3\n"\
+        #_l" 128(%[sta],%%r8), %%ymm4\n"\
+        #_l" 160(%[sta],%%r8), %%ymm5\n"\
+        #_l" 192(%[sta],%%r8), %%ymm6\n"\
+        #_l" 224(%[sta],%%r8), %%ymm7\n"\
+        "prefetchnta     (%%rax,%%r8)\n"\
+        "prefetchnta     64(%%rax,%%r8)\n"\
+        "prefetchnta     128(%%rax,%%r8)\n"\
+        "prefetchnta     196(%%rax,%%r8)\n"\
+        #_s" %%ymm0, (%[sto],%%r8)\n"\
+        #_s" %%ymm1, 32(%[sto],%%r8)\n"\
+        #_s" %%ymm2, 64(%[sto],%%r8)\n"\
+        #_s" %%ymm3, 96(%[sto],%%r8)\n"\
+        #_s" %%ymm4, 128(%[sto],%%r8)\n"\
+        #_s" %%ymm5, 160(%[sto],%%r8)\n"\
+        #_s" %%ymm6, 192(%[sto],%%r8)\n"\
+        #_s" %%ymm7, 224(%[sto],%%r8)\n"\
+        "addq    $256, %%r8\n"\
+        "cmpq    %%r8, %[SIZE]\n"\
+        "jne     .loop_start\n"\
+        :\
+        : [sta] "r" (_sta), [sto] "r" (_sto), [SIZE] "r" (_SIZE)\
+        : "%r8","%rax","%ymm0","%ymm1","%ymm2","%ymm3","%ymm4","%ymm5","%ymm6","%ymm7"\
+    );
+
+int main(){
+    char* p = (char*)21;
+    size_t li = 22;
+    unsigned long long t1,t2,t3;
+
+//========================================================
+    auto sta = std::chrono::high_resolution_clock::now();
+    for(int iter=0; iter!=1e5; iter++){
+#ifdef comp2
+    asm volatile( //GCC
+        "sall    $16, %[li]\n"           //li*CACHE_LINE_SIZE
+        "je      .L21\n"                 //li=0 0=> Ende
+        "xorl    %%eax, %%eax\n"         //i=0
+".L16:\n"
+        "movl    %%eax, %%edx\n"         //off=i
+        "addl    $65536, %%eax\n"        //i+=CACHE_LINE_SIZE
+        "prefetchnta     (%[p],%%rdx)\n" //prefetch(p+off)
+        "cmpl    %%eax, %[li]\n"         //if(i==li*CACHE_LINE_SIZE)
+        "jne     .L16\n"                 //else jmp loopstart
+".L21:"
+        : 
+        : [li] "r" (li), [p] "r" (p)
+        : "%rax", "%rdx"
+    );
+#endif
+    }
+    auto sto = std::chrono::high_resolution_clock::now();
+    t1 = std::chrono::duration_cast<std::chrono::microseconds>(sto-sta).count();
+//========================================================
+
+//========================================================
+    sta = std::chrono::high_resolution_clock::now();
+    for(int iter=0; iter!=1e5; iter++){
+#ifdef comp2
+    asm volatile( //CLANG
+        "shll    $16, %[li]\n" //li*CACHE_SIZE
+        "je      .LBB1_6\n"    //if(!li) return
+        "addl    $-65536, %[li]\n" //(li-1)*CACHE_SIZE
+        "movl    %[li], %%ecx\n" //ecx=(li-1)*CACHE_SIZE
+        "shrl    $16, %%ecx\n"   //ecx=li-1
+        "addl    $1, %%ecx\n"    //ecx=li
+        "movl    %%ecx, %%eax\n"  //eax=ecx=li
+        "andl    $7, %%eax\n"    //eax=li & 0b111
+        "cmpl    $458752, %[li]\n" //li==8
+        "jae     .LBB1_7\n"        //li>=8
+        "xorl    %%ecx, %%ecx\n"     //ecx=0
+        "testl   %%eax, %%eax\n"     //eax==0
+        "jne     .LBB1_4\n"        //li=li & 0b111=eax!=0, li<8
+        "jmp     .LBB1_6\n"        //if(!li) return
+".LBB1_7:\n"                       //Wenn li>=8
+        "leaq    458752(%[p]), %%rdx\n" //rdx=p+6*CACHE_SIZE
+        "movl    $1, %[li]\n"           //[li]=1
+        "subl    %%ecx, %[li]\n"         //[li]=1-(p+6*CACHE_SIZE)
+        "leal    (%%rax,%[li]), %[li]\n" //[li]=1-(p+6*CACHE_SIZE)+li & 0b111
+        "addl    $-1, %[li]\n"           //[li]=li&0b111-(p+6*CACHE_SIZE)
+        "xorl    %%ecx, %%ecx\n"          //ecx=0
+".LBB1_8:\n"
+        "prefetchnta     -458752(%%rdx,%%rcx)\n" //p+0*CACHE_SIZE+rcx
+        "prefetchnta     -393216(%%rdx,%%rcx)\n" //p+1*CACHE_SIZE+rcx
+        "prefetchnta     -327680(%%rdx,%%rcx)\n" //p+2*CACHE_SIZE+rcx
+        "prefetchnta     -262144(%%rdx,%%rcx)\n" //p+3*CACHE_SIZE+rcx
+        "prefetchnta     -196608(%%rdx,%%rcx)\n" //p+4*CACHE_SIZE+rcx
+        "prefetchnta     -131072(%%rdx,%%rcx)\n" //p+5*CACHE_SIZE+rcx
+        "prefetchnta     -65536(%%rdx,%%rcx)\n" //p+6*CACHE_SIZE+rcx
+        "prefetchnta     (%%rdx,%%rcx)\n"       //p+7*CACHE_SIZe+rcx
+        "addq    $524288, %%rcx\n"              //rcx += 8*CACHE_SIZE
+        "addl    $8, %[li]\n"   //[li]+=8
+        "jne     .LBB1_8\n"     //while([li]!=0)
+        "testl   %%eax, %%eax\n" //eax=li&0b111 ==0
+        "je      .LBB1_6\n"      //End
+".LBB1_4:\n"     //Tail which could not be unrolled, li<8
+        "addq    %%rcx, %[p]\n"
+".LBB1_5:\n"
+        "prefetchnta     (%[p])\n"
+        "addq    $65536, %[p]\n"
+        "addl    $-1, %%eax\n"
+        "jne     .LBB1_5\n"
+".LBB1_6:\n"
+        : 
+        : [li] "r" (li), [p] "r" (p)
+        : "%rax", "%rcx", "%rdx"
+    );
+#endif
+    }
+    sto = std::chrono::high_resolution_clock::now();
+    t2 = std::chrono::duration_cast<std::chrono::microseconds>(sto-sta).count();
+//========================================================
+
+
+
+
+
+    std::cout<<t1<<std::endl;
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+#if 0
+void sleepms(unsigned int millisec)
+{
+	usleep(millisec);
+}
+
+//#define max(a,b) (((a)>(b))?(a):(b))
+//#define min(a,b) (((a)<(b))?(a):(b))
+
+volatile void algo8_a(volatile char* RESTRICT sta, volatile char* RESTRICT sto, size_t li, size_t SIZE){
+    asm volatile("");
+}
+
+template<typename ALG1, typename ALG2>
+volatile void algo8_b(volatile char* RESTRICT sta, volatile char* RESTRICT sto, ALG1 l, ALG2 s, size_t li, size_t SIZE) {
+	unsigned c_s = li * CACHE_LINE_SIZE;
+	volatile char* end = sta + SIZE; 
+	for (unsigned int i = 0; i != c_s; i += CACHE_LINE_SIZE) {
+		_mm_prefetch((char*)sta + i, _MM_HINT_NTA); 
+	}
+	for (volatile char* p = sta, *d = sto; p != end; p += 256, d += 256) {
+		asm volatile("" ::: "memory");
+		__m256i ymm0 = l((__m256i*)(p + 0)); 
+		asm volatile("" ::: "memory");
+		__m256i ymm1 = l((__m256i*)(p + 32 ));
+		asm volatile("" ::: "memory");
+		__m256i ymm2 = l((__m256i*)(p + 64 ));
+		asm volatile("" ::: "memory");
+		__m256i ymm3 = l((__m256i*)(p + 96 ));
+		asm volatile("" ::: "memory");
+		__m256i ymm4 = l((__m256i*)(p + 128));
+		asm volatile("" ::: "memory");
+		__m256i ymm5 = l((__m256i*)(p + 160));
+		asm volatile("" ::: "memory");
+		__m256i ymm6 = l((__m256i*)(p + 192));
+		asm volatile("" ::: "memory");
+		__m256i ymm7 = l((__m256i*)(p + 224));
+		asm volatile("" ::: "memory");
+		_mm_prefetch((char*)p + c_s + 0  , _MM_HINT_NTA );
+		_mm_prefetch((char*)p + c_s + 64 , _MM_HINT_NTA);
+		_mm_prefetch((char*)p + c_s + 128, _MM_HINT_NTA);
+		_mm_prefetch((char*)p + c_s + 192, _MM_HINT_NTA);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 0  ),ymm0);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 32 ),ymm1);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 64 ),ymm2);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 96 ),ymm3);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 128),ymm4);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 160),ymm5);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 192),ymm6);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 224),ymm7);
+		asm volatile("" ::: "memory");
+	}
+}
+
+//sta,sto mark the region with lenght SIZE, l and s are the store and load algorithms, n is the number of cache lines
+//Prefetch before,unroll 4
+template<typename ALG1, typename ALG2>
+volatile void algo4_b(volatile char* RESTRICT sta, volatile char* RESTRICT sto, ALG1 l, ALG2 s, size_t li, size_t SIZE) {
+	unsigned c_s = li * CACHE_LINE_SIZE;
+	volatile char* end = sta + SIZE;
+	for (unsigned int i = 0; i != c_s; i += CACHE_LINE_SIZE) {
+		_mm_prefetch((char*)sta + i, _MM_HINT_NTA);
+	}
+	for (volatile char* p = sta, *d = sto; p != end; p += 128, d += 128) {
+		asm volatile("" ::: "memory");
+		__m256i ymm0 = l((__m256i*)(p + 0));
+		asm volatile("" ::: "memory");
+		__m256i ymm1 = l((__m256i*)(p + 32));
+		asm volatile("" ::: "memory");
+		__m256i ymm2 = l((__m256i*)(p + 64));
+		asm volatile("" ::: "memory");
+		__m256i ymm3 = l((__m256i*)(p + 96));
+		asm volatile("" ::: "memory");
+		_mm_prefetch((char*)p + c_s + 0, _MM_HINT_NTA);
+		_mm_prefetch((char*)p + c_s + 64, _MM_HINT_NTA);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 0), ymm0);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 32), ymm1);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 64), ymm2);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 96), ymm3);
+		asm volatile("" ::: "memory");
+	}
+}
+
+
+//sta,sto mark the region with lenght SIZE, l and s are the store and load algorithms, n is the number of cache lines
+//Prefetch before,unroll 2
+template<typename ALG1, typename ALG2>
+volatile void algo2_b(volatile char* RESTRICT sta, volatile char* RESTRICT sto, ALG1 l, ALG2 s, size_t li, size_t SIZE) {
+	unsigned c_s = li * CACHE_LINE_SIZE;
+	volatile char* end = sta + SIZE;
+	for (unsigned int i = 0; i != c_s; i += CACHE_LINE_SIZE) {
+		_mm_prefetch((char*)sta + i, _MM_HINT_NTA);
+	}
+	for (volatile char* p = sta, *d = (char*)sto; p != end; p += 64, d += 64) {
+		asm volatile("" ::: "memory");
+		__m256i ymm0 = l((__m256i*)(p + 0));
+		asm volatile("" ::: "memory");
+		__m256i ymm1 = l((__m256i*)(p + 32));
+		asm volatile("" ::: "memory");
+		_mm_prefetch((char*)p + c_s + 0, _MM_HINT_NTA);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 0), ymm0);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 32), ymm1);
+		asm volatile("" ::: "memory");
+	}
+}
+
+
+//sta,sto mark the region with lenght SIZE, l and s are the store and load algorithms, n is the number of cache lines, r the radius of preftech-forecast
+//Don't Prefetch before,unroll 8
+template<typename ALG1, typename ALG2>
+volatile void algo8_n(volatile char* RESTRICT sta, volatile char* RESTRICT sto, ALG1 l, ALG2 s, size_t r, size_t SIZE) {
+	volatile char* end = sta + SIZE;
+	for (volatile char* p = sta, *d = sto; p != end; p += 256, d += 256) {
+		asm volatile("" ::: "memory");
+		__m256i ymm0 = l((__m256i*)(p + 0));
+		asm volatile("" ::: "memory");
+		__m256i ymm1 = l((__m256i*)(p + 32));
+		asm volatile("" ::: "memory");
+		__m256i ymm2 = l((__m256i*)(p + 64));
+		asm volatile("" ::: "memory");
+		__m256i ymm3 = l((__m256i*)(p + 96));
+		asm volatile("" ::: "memory");
+		__m256i ymm4 = l((__m256i*)(p + 128));
+		asm volatile("" ::: "memory");
+		__m256i ymm5 = l((__m256i*)(p + 160));
+		asm volatile("" ::: "memory");
+		__m256i ymm6 = l((__m256i*)(p + 192));
+		asm volatile("" ::: "memory");
+		__m256i ymm7 = l((__m256i*)(p + 224));
+		asm volatile("" ::: "memory");
+		_mm_prefetch((char*)p + r + 0, _MM_HINT_NTA);
+		_mm_prefetch((char*)p + r + 64, _MM_HINT_NTA);
+		_mm_prefetch((char*)p + r + 128, _MM_HINT_NTA);
+		_mm_prefetch((char*)p + r + 192, _MM_HINT_NTA);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 0), ymm0);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 32), ymm1);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 64), ymm2);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 96), ymm3);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 128), ymm4);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 160), ymm5);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 192), ymm6);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 224), ymm7);
+		asm volatile("" ::: "memory");
+	}
+}
+
+//sta,sto mark the region with lenght SIZE, l and s are the store and load algorithms, n is the number of cache lines, r the radius of preftech-forecast
+//Don't Prefetch before,unroll 4
+template<typename ALG1, typename ALG2>
+volatile void algo4_n(volatile char* RESTRICT sta, volatile char* RESTRICT sto, ALG1 l, ALG2 s, size_t r, size_t SIZE) {
+	volatile char* end = sta + SIZE;
+	for (volatile char* p = sta, *d = sto; p != end; p += 128, d += 128) {
+		asm volatile("" ::: "memory");
+		__m256i ymm0 = l((__m256i*)(p + 0));
+		asm volatile("" ::: "memory");
+		__m256i ymm1 = l((__m256i*)(p + 32));
+		asm volatile("" ::: "memory");
+		__m256i ymm2 = l((__m256i*)(p + 64));
+		asm volatile("" ::: "memory");
+		__m256i ymm3 = l((__m256i*)(p + 96));
+		asm volatile("" ::: "memory");
+		_mm_prefetch((char*)p + r + 0, _MM_HINT_NTA);
+		_mm_prefetch((char*)p + r + 64, _MM_HINT_NTA);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 0), ymm0);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 32), ymm1);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 64), ymm2);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 96), ymm3);
+		asm volatile("" ::: "memory");
+	}
+}
+
+//sta,sto mark the region with lenght SIZE, l and s are the store and load algorithms, n is the number of cache lines, r the radius of preftech-forecast
+//Don't Prefetch before,unroll 2
+template<typename ALG1, typename ALG2>
+volatile void algo2_n(volatile char* RESTRICT sta, volatile char* RESTRICT sto, ALG1 l, ALG2 s, size_t r, size_t SIZE) {
+	volatile char* end = sta + SIZE;
+	for (volatile char* p = sta, *d = sto; p != end; p += 64, d += 64) {
+		asm volatile("" ::: "memory");
+		__m256i ymm0 = l((__m256i*)(p + 0));
+		asm volatile("" ::: "memory");
+		__m256i ymm1 = l((__m256i*)(p + 32));
+		asm volatile("" ::: "memory");
+		_mm_prefetch((char*)p + r + 0, _MM_HINT_NTA);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 0), ymm0);
+		asm volatile("" ::: "memory");
+		s((__m256i*)(d + 32), ymm1);
+		asm volatile("" ::: "memory");
+	}
+}
+
+#define test(alg,index);\
+	sleepms(SLEEP_TIME);\
+	src += 64;\
+	dst += 64;\
+	__builtin___clear_cache ((char*)dst,(char*)src+size);\
+	sta = std::chrono::high_resolution_clock::now();\
+	for (k = times; k != 0; k--) {\
+		asm volatile("" ::: "memory");\
+		alg;\
+		std::cout<<*(src+  (int)(((double)rand()/(double)RAND_MAX)*size));\
+		asm volatile("" ::: "memory");\
+	}\
+	sto = std::chrono::high_resolution_clock::now();\
+	output[index].push_back((256*std::chrono::duration_cast<std::chrono::MEASURE_TYPE>(sto - sta).count())/times);
+
+#define bch1(al,add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 8, size), 0+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 8, size), 1+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 8, size), 2+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 8, size), 3+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 16, size), 4+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 16, size), 5+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 16, size), 6+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 16, size), 7+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 32, size), 8+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 32, size), 9+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 32, size), 10+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 32, size), 11+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 64, size), 12+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 64, size), 13+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 64, size), 14+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 64, size), 15+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 128, size), 16+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 128, size), 17+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 128, size), 18+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 128, size), 19+add);
+
+#define bch2(al,add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 32, size), 0+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 32, size), 1+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 32, size), 2+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 32, size), 3+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 64, size), 4+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 64, size), 5+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 64, size), 6+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 64, size), 7+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 128, size), 8+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 128, size), 9+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 128, size), 10+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 128, size), 11+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 256, size), 12+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 256, size), 13+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 256, size), 14+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 256, size), 15+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_store_si256, 512, size), 16+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_store_si256, 512, size), 17+add);\
+	test(al(src,dst,_mm256_loadu_si256, _mm256_stream_si256, 512, size), 18+add);\
+	test(al(src,dst,_mm256_lddqu_si256, _mm256_stream_si256, 512, size), 19+add);
+
+void benchmark(size_t size, int times)
+{
+	char * DATA1 = (char*)malloc(size + 128*64) + 64;
+	char * DATA2 = (char*)malloc(size + 128*64) + 64;
+	size_t LINEAR1 = std::min( (size_t)DATA1 , (size_t)DATA2 );
+	size_t LINEAR2 = std::max( (size_t)DATA1, (size_t)DATA2);
+	volatile char *dst = (char*)(((64 - (LINEAR1 & 63)) & 63) + LINEAR1);
+	volatile char *src = (char*)(((64 - (LINEAR2 & 63)) & 63) + LINEAR2);
+	int k;
+	auto sta = std::chrono::high_resolution_clock::now();
+	auto sto = std::chrono::high_resolution_clock::now();
+
+	bch1(algo8_b,0);
+	bch1(algo4_b,20);
+	bch1(algo2_b,40);
+	bch2(algo8_n,60);
+	bch2(algo4_n,80);
+	bch2(algo2_n,100);
+	
+	free(DATA1);
+	free(DATA2);
+}
+
+
+int main(void)
+{	
+	for (int i = 256; i != 129*256; i+=256) {
+		benchmark(i, RUNS/i);
+		std::cout << (i>>8) << std::endl;
+	}
+	
+	for (int i = 2*256*256; i != (2*256+129)* 256; i += 256) {
+		benchmark(i, RUNS / i);
+		std::cout << (i >> 8) << std::endl;
+	}
+	
+#define OUTPUT_LINE(ind);\
+	for(unsigned i=0; i!=output[ind].size(); ++i)\
+		std::cout<<(double)((output[ind][i]*i)/RUNS)<<" ";\
+	std::cout<<'\n';
+
+	for (int index = 0; index != 120; index++) {
+		OUTPUT_LINE(index);
+	}
+	
+	return 0;
+}
+#endif
