@@ -15,7 +15,6 @@ namespace impl {
 		out2 = _mm_and_epi32(out2_tmp, _mm_set1_epi32(0xFF));
 	}
 	//Converts two [u]int32_t[4] (in_lo, in_hi) to [u]int16_t[8] using truncation. If unsafe, we might assume that every element of in_lo will fit in an int16_t
-	template<bool safe>
 	inline __m128i _mm_compress_epi32_01(const __m128i in_lo, __m128i in_hi) {
 //	    return _mm_shuffle_epi8(_mm_compress_epi32_02(in_lo,in_hi),0xWHATEVER);
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
@@ -27,15 +26,6 @@ namespace impl {
 		return _mm_or_si128(hi_epi32_shift, lo_epi32_mask);
 #endif
 	}
-	template<> inline __m128i _mm_compress_epi32_01<false>(const __m128i in_lo, __m128i in_hi) {
-//		return _mm_shuffle_epi8(_mm_compress_epi32_02(in_lo, in_hi), 0xWHATEVER);
-		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
-#if SSE >= 41
-		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
-#else
-		return _mm_or_si128(hi_epi32_shift, in_lo);
-#endif
-	}
 	inline void _mm_widen_epi16_02(const __m128i in, __m128i& out1, __m128i& out2) {
 		const __m128i sign = _mm_srai_epi16(in, 16);
 		out1 = _mm_unpackhi_epi16(in, sign);
@@ -45,7 +35,6 @@ namespace impl {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
 		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
 	}
-	template<bool safe>
 	inline __m128i _mm_compress_epi32_02(const __m128i in_lo, __m128i in_hi) {
 		return _mm_packs_epi32(in_lo, in_hi);
 	}
