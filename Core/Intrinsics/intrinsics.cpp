@@ -28,7 +28,7 @@ namespace impl {
 #endif
 	}
 	template<> inline __m128i _mm_compress_epi32_01<false>(const __m128i in_lo, __m128i in_hi) {
-		return _mm_shuffle_epi8(_mm_compress_epi32_02(in_lo, in_hi), 0xWHATEVER);
+//		return _mm_shuffle_epi8(_mm_compress_epi32_02(in_lo, in_hi), 0xWHATEVER);
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 #if SSE >= 41
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
