@@ -362,13 +362,13 @@ public:
 	template<bool temporal>
 	inline void load(const int16_t* p, constexpr bool align = false) {
 		if constexpr (align)
-			_mm_load_si128(p, vec);
+			vec = _mm_load_si128(p);
 		else
-			_mm_lddq_si128(p, vec);
+			vec = _mm_lddq_si128(p);
 	}
 	template<> inline void load<false>(const int16_t* p, constexpr bool align = true) {
 		static_assert(align,"Non temporal loads must be aligned!");
-		_mm_stream_load_si128(p,vec);
+		vec = _mm_stream_load_si128(p);
 	}
 	inline void load(const __m128i v) { vec = v; }
 	inline void load(const int16_t i) { vec = _mm_set1_epi16(i); }
