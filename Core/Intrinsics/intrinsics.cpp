@@ -15,7 +15,7 @@ namespace impl {
 		out2 = _mm_and_epi32(out2_tmp, _mm_set1_epi32(0xFF));
 	}
 	//Converts two [u]int32_t[4] (in_lo, in_hi) to [u]int16_t[8] using truncation.
-	inline __m128i _mm_compress_epi32_01(const __m128i in_lo, __m128i in_hi) {
+	inline __m128i _mm_compress_epi32_01(const __m128i in_lo, const __m128i in_hi) {
 //	    return _mm_shuffle_epi8(_mm_compress_epi32_02(in_lo,in_hi),0xWHATEVER);
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 #if SSE >= 41
@@ -35,7 +35,7 @@ namespace impl {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
 		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
 	}
-	inline __m128i _mm_compress_epi32_02(const __m128i in_lo, __m128i in_hi) {
+	inline __m128i _mm_compress_epi32_02(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packs_epi32(in_lo, in_hi);
 	}
 
