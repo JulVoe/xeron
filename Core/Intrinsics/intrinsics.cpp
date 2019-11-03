@@ -3,20 +3,33 @@
 
 namespace intrin {
 namespace impl {
+	
+	inline void _mm_widen_epi16_10(const __m128i in, __m128i& out1, __m128i& out2) {
+		const __m128i sign = _mm_srai_epi16(in, 16);
+		out1 = _mm_unpackhi_epi16(in, sign);
+		out2 = _mm_unpacklo_epi16(in, sign);
+	}
+	inline void _mm_widen_epu16_10(const __m128i in, __m128i& out1, __m128i& out2) {
+		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
+		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
+	}
+	inline __m128i _mm_compress_epi32_10(const __m128i in_lo, const __m128i in_hi) {
+		return _mm_packs_epi32(in_lo, in_hi);
+	}
+	
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2) 
-	inline void _mm_widen_epi16_01(const __m128i in, __m128i& out1, __m128i& out2) {
+	inline void _mm_widen_epi16_20(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_srai_epi32(in, 16);
 		const __m128i out2_tmp = _mm_slli_epi32(in, 16);
 		out2 = _mm_srai_epi32(out2_tmp, 16);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	inline void _mm_widen_epu16_01(const __m128i in, __m128i& out1, __m128i& out2) {
+	inline void _mm_widen_epu16_20(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_srli_epi32(in, 16);
 		out2 = _mm_and_si128(in, _mm_set1_epi32(0xFF));
 	}
 	//Converts two [u]int32_t[4] (in_lo, in_hi) to [u]int16_t[8] using truncation.
-	inline __m128i _mm_compress_epi32_01(const __m128i in_lo, const __m128i in_hi) {
-//	    return _mm_shuffle_epi8(_mm_compress_epi32_02(in_lo,in_hi),0xWHATEVER);
+	inline __m128i _mm_compress_epi32_20(const __m128i in_lo, const __m128i in_hi) {
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 #if SSE >= 41
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
@@ -25,18 +38,6 @@ namespace impl {
 		const __m128i lo_epi32_mask = _mm_and_si128(in_lo, lo_mask);
 		return _mm_or_si128(hi_epi32_shift, lo_epi32_mask);
 #endif
-	}
-	inline void _mm_widen_epi16_02(const __m128i in, __m128i& out1, __m128i& out2) {
-		const __m128i sign = _mm_srai_epi16(in, 16);
-		out1 = _mm_unpackhi_epi16(in, sign);
-		out2 = _mm_unpacklo_epi16(in, sign);
-	}
-	inline void _mm_widen_epu16_02(const __m128i in, __m128i& out1, __m128i& out2) {
-		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
-		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
-	}
-	inline __m128i _mm_compress_epi32_02(const __m128i in_lo, const __m128i in_hi) {
-		return _mm_packs_epi32(in_lo, in_hi);
 	}
 
 
