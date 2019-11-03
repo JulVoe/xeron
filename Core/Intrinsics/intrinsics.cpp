@@ -12,7 +12,7 @@ namespace impl {
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
 	inline void _mm_widen_epu16_01(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_srli_epi32(in, 16);
-		out2 = _mm_and_si128(out2_tmp, _mm_set1_epi32(0xFF));
+		out2 = _mm_and_si128(in, _mm_set1_epi32(0xFF));
 	}
 	//Converts two [u]int32_t[4] (in_lo, in_hi) to [u]int16_t[8] using truncation.
 	inline __m128i _mm_compress_epi32_01(const __m128i in_lo, const __m128i in_hi) {
