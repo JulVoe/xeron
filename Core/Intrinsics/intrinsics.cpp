@@ -39,7 +39,14 @@ namespace impl {
 		return _mm_or_si128(hi_epi32_shift, lo_epi32_mask);
 #endif
 	}
-
+	inline __m128i _mm_compress_epi32_21(const __m128i in_lo, const __m128i in_hi) {
+#if SSE >= 41
+		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
+		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
+#else
+	    return _mm_shuffle_epi8(_mm_compress_epi32_10(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
+#endif
+	}
 
 
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
