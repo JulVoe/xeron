@@ -163,7 +163,7 @@ namespace impl {
 		const __m128i lo_epi32 = _mm_cvttps_epi32(lo);
 
 		//6.: Convert back to epi16
-		return _mm_compress_epi32<false>(lo_epi32, hi_epi32);
+		return _mm_compress_epi32(lo_epi32, hi_epi32);
 #endif
 	}
 	__m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) {
@@ -212,7 +212,7 @@ namespace impl {
 		const __m128i lo_epi32 = _mm_cvttps_epi32(lo);
 
 		//5.: Convert back to epi16
-		return _mm_compress_epi32<false>(lo_epi32, hi_epi32);
+		return _mm_compress_epi32(lo_epi32, hi_epi32);
 #endif
 	}
 	__m128i _mm_div_epu16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) { //Correctness has to be verified
