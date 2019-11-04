@@ -14,8 +14,15 @@ namespace impl {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
 		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
 	}
+	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8] using saturation
 	inline __m128i _mm_compress_epi32_10(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packs_epi32(in_lo, in_hi);
+	}
+	//Converts two int32_t[4] (in_lo, in_hi) to uint16_t[8] using saturation
+	//Note: also converts 2xuint32_t[4] to uint16_t[8] correct, if highest bit of elements isn't set
+	//	If that happens, output will be zero and not uint16_t::max()
+	inline __m128i _mm_compress_epu32_10(const __m128i in_lo, const __m128i in_hi) {
+		return _mm_packus_epi32(in_lo, in_hi);
 	}
 	
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2) 
