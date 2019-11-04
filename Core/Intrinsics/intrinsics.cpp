@@ -69,9 +69,15 @@ namespace impl {
 #endif
 	}
 	
-	//Converts int32_t[8] to int16_t[8]
+	//Converts int32_t[8] to int16_t[8] using saturation
 	inline __m128i _mm256_compress_epi32(__m256i in){
-		_mm_packs_epi32(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
+		_mm_compress_epi32_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
+	}
+	//Converts uint32_t[8] (in) to uint16_t[8] using saturation
+	//Note: If the highest bit of on element of in is set, the corresponding returned element will be 0
+	//	(see _mm_compress_epi32_10)
+	inline __m128i _mm256_compress_epu32(__m256i in){
+		_mm_compress_epi32_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
 
 
