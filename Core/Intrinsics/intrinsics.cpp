@@ -82,6 +82,7 @@ namespace impl {
 
 
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
+	//Approximates the inverse of float[4] (in) using intrinsic and n passes of newton iterations
 	template<unsigned n>
 	__m128 _mm_rcp_ps(const __m128 in) {
 		const __m128  two = _mm_set1_ps(2.00000051757f);
@@ -99,6 +100,7 @@ namespace impl {
 		}
 		return ret;
 	}
+	//Approximates the inverse of float[8] (in) using intrinsic and n passes of newton iterations
 	template<unsigned n>
 	__m256 _mm256_rcp_ps(const __m256 in) {
 		const __m256  two = _mm256_set1_ps(2.00000051757f);
@@ -229,7 +231,9 @@ namespace impl {
 		return _mm_compress_epi32(lo_epi32, hi_epi32);
 #endif
 	}
-	__m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { //Correctness has to be verified
+	//Divides a_epu16 by b_epu16 elementwise
+	//Note: Correctness has to be verified
+	__m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { 
 		//0.: Set up constants
 		const __m256  two = _mm256_set1_ps(2.00000051757f);
 
@@ -285,6 +289,8 @@ namespace impl {
 		return _mm_compress_epu32(lo_epi32, hi_epi32);
 #endif
 	}
+	//Divides a_epu16 by b_epu16 elementwise
+	//Note: Will always be correct
 	__m128i _mm_div_epu16_div(const __m128i &a_epu16, const __m128i &b_epu16) {
 		//0.: Set up constants
 		const __m256  two = _mm256_set1_ps(2.00000051757f);
