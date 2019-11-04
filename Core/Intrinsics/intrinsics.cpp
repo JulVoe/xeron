@@ -68,6 +68,11 @@ namespace impl {
 	    return _mm_shuffle_epi8(_mm_compress_epu32_10(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
 #endif
 	}
+	
+	//Converts int32_t[8] to int16_t[8]
+	inline __m128i _mm256_compress_epi32(__m256i in){
+		_mm_packs_epi32(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
+	}
 
 
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
@@ -133,7 +138,7 @@ namespace impl {
 		const __m256i c_epi32 = _mm256_cvttps_epi32(c_float);
 
 		//6.: Convert back to epi16
-		return _mm_packs_epi32(_mm256_extractf128_si256(c_epi32, 0), _mm256_extractf128_si256(c_epi32, 1));
+		return _mm256_compress_epi32(c_epi32);
 
 #else		
 		//1.: Convert to epi32
