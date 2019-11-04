@@ -121,7 +121,9 @@ namespace impl {
 	 * https://stackoverflow.com/questions/41228180/how-can-i-convert-a-vector-of-float-to-short-int-using-avx-instructions
 	 * https://stackoverflow.com/questions/16822757/sse-integer-division
 	*/
-	__m128i _mm_div_epi16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) { //Correctness has to be verified
+	//Divides a_epi16 by b_epi16 elementwise
+	//Note: Correctness has to be verified
+	__m128i _mm_div_epi16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) {
 		//0.: Set up constants
 		const __m256  two = _mm256_set1_ps(2.00000051757f);
 
@@ -177,6 +179,8 @@ namespace impl {
 		return _mm_compress_epi32(lo_epi32, hi_epi32);
 #endif
 	}
+	//Divides a_epi16 by b_epi16 elementwise
+	//Note: Result will always be correct
 	__m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) {
 		//0.: Set up constants
 		const __m256  two = _mm256_set1_ps(2.00000051757f);
@@ -197,8 +201,7 @@ namespace impl {
 		const __m256i c_epi32 = _mm256_cvttps_epi32(c_float);
 
 		//5.: Convert back to epi16
-		return _mm_packs_epi32(_mm256_extractf128_si256(c_epi32, 0), _mm256_extractf128_si256(c_epi32, 1));
-
+		return _mm256_compress_epi32(c_epi32);
 #else		
 		//1.: Convert to epi32
 		__m128i a_hi_epi32;
