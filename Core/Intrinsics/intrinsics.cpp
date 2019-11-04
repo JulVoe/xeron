@@ -229,14 +229,14 @@ namespace impl {
 		return _mm_compress_epi32(lo_epi32, hi_epi32);
 #endif
 	}
-	__m128i _mm_div_epu16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) { //Correctness has to be verified
+	__m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { //Correctness has to be verified
 		//0.: Set up constants
 		const __m256  two = _mm256_set1_ps(2.00000051757f);
 
 #if AVX >= 2
 		//1.: Convert to epi32
-		const __m256i a = _mm256_cvtepu16_epi32(a_epi16);
-		const __m256i b = _mm256_cvtepu16_epi32(b_epi16);
+		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
+		const __m256i b = _mm256_cvtepu16_epi32(b_epu16);
 
 		//2.: Convert to float
 		const __m256 a_float = _mm256_cvtepi32_ps(a);
@@ -251,23 +251,23 @@ namespace impl {
 		//5.: Convert back to epi32
 		const __m256i c_epi32 = _mm256_cvttps_epi32(c_float);
 
-		//6.: Convert back to epi16
-		return _mm_packs_epi32(_mm256_extractf128_si256(c_epi32, 0), _mm256_extractf128_si256(c_epi32, 1));
+		//6.: Convert back to epu16
+		return _mm256_compress_epu32(c_epi32);
 
 #else		
 		//1.: Convert to epi32
-		__m128i a_hi_epu32;
-		__m128i a_lo_epu32;
-		__m128i b_hi_epu32;
-		__m128i b_lo_epu32;
-		_mm_widen_epu16(a_epi16, a_hi_epu32, a_lo_epu32);
-		_mm_widen_epu16(b_epi16, b_hi_epu32, b_lo_epu32);
+		__m128i a_hi_epi32;
+		__m128i a_lo_epi32;
+		__m128i b_hi_epi32;
+		__m128i b_lo_epi32;
+		_mm_widen_epu16(a_epu16, a_hi_epi32, a_lo_epi32);
+		_mm_widen_epu16(b_epu16, b_hi_epi32, b_lo_epi32);
 
 		//2.: Convert to float
-		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epu32);
-		const __m128 a_lo = _mm_cvtepi32_ps(a_lo_epu32);
-		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epu32);
-		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epu32);
+		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
+		const __m128 a_lo = _mm_cvtepi32_ps(a_lo_epi32);
+		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
+		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
 
 		//3.: Calculate reciprocal
 		const __m128 b_hi_rcp = _mm_rcp_ps<1>(b_hi);
@@ -281,18 +281,18 @@ namespace impl {
 		const __m128i hi_epi32 = _mm_cvttps_epi32(hi);
 		const __m128i lo_epi32 = _mm_cvttps_epi32(lo);
 
-		//6.: Convert back to epi16
-		return _mm_compress_epi32(lo_epi32, hi_epi32);
+		//6.: Convert back to epu16
+		return _mm_compress_epu32(lo_epi32, hi_epi32);
 #endif
 	}
-	__m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) {
+	__m128i _mm_div_epu16_div(const __m128i &a_epu16, const __m128i &b_epu16) {
 		//0.: Set up constants
 		const __m256  two = _mm256_set1_ps(2.00000051757f);
 
 #if AVX >= 2
 		//1.: Convert to epi32
-		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
-		const __m256i b = _mm256_cvtepi16_epi32(b_epi16);
+		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
+		const __m256i b = _mm256_cvtepu16_epi32(b_epu16);
 
 		//2.: Convert to float
 		const __m256 a_float = _mm256_cvtepi32_ps(a);
@@ -304,8 +304,8 @@ namespace impl {
 		//4.: Convert back to epi32
 		const __m256i c_epi32 = _mm256_cvttps_epi32(c_float);
 
-		//5.: Convert back to epi16
-		return _mm_packs_epi32(_mm256_extractf128_si256(c_epi32, 0), _mm256_extractf128_si256(c_epi32, 1));
+		//5.: Convert back to epu16
+		return _mm256_compress_epu32(c_epi32);
 
 #else		
 		//1.: Convert to epi32
@@ -313,8 +313,8 @@ namespace impl {
 		__m128i a_lo_epi32;
 		__m128i b_hi_epi32;
 		__m128i b_lo_epi32;
-		_mm_widen_epu16(a_epi16, a_hi_epi32, a_lo_epi32);
-		_mm_widen_epu16(b_epi16, b_hi_epi32, b_lo_epi32);
+		_mm_widen_epu16(a_epu16, a_hi_epi32, a_lo_epi32);
+		_mm_widen_epu16(b_epu16, b_hi_epi32, b_lo_epi32);
 
 		//2.: Convert to float
 		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
@@ -330,8 +330,8 @@ namespace impl {
 		const __m128i hi_epi32 = _mm_cvttps_epi32(hi);
 		const __m128i lo_epi32 = _mm_cvttps_epi32(lo);
 
-		//5.: Convert back to epi16
-		return _mm_compress_epi32(lo_epi32, hi_epi32);
+		//5.: Convert back to epu16
+		return _mm_compress_epu32(lo_epi32, hi_epi32);
 #endif
 	}
 
