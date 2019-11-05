@@ -125,9 +125,6 @@ namespace impl {
 	//Divides a_epi16 by b_epi16 elementwise
 	//Note: Correctness has to be verified
 	inline __m128i _mm_div_epi16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) {
-		//0.: Set up constants
-		const __m256  two = _mm256_set1_ps(2.00000051757f);
-
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
@@ -183,9 +180,6 @@ namespace impl {
 	//Divides a_epi16 by b_epi16 elementwise
 	//Note: Result will always be correct
 	inline __m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) {
-		//0.: Set up constants
-		const __m256  two = _mm256_set1_ps(2.00000051757f);
-
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
@@ -233,9 +227,6 @@ namespace impl {
 	//Divides a_epu16 by b_epu16 elementwise
 	//Note: Correctness has to be verified
 	inline __m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { 
-		//0.: Set up constants
-		const __m256  two = _mm256_set1_ps(2.00000051757f);
-
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
@@ -291,9 +282,6 @@ namespace impl {
 	//Divides a_epu16 by b_epu16 elementwise
 	//Note: Will always be correct
 	inline __m128i _mm_div_epu16_div(const __m128i &a_epu16, const __m128i &b_epu16) {
-		//0.: Set up constants
-		const __m256  two = _mm256_set1_ps(2.00000051757f);
-
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
