@@ -1,4 +1,3 @@
-//#include "libsimdpp/simd.h"
 #include "../SystemInfo/Makros.hpp"
 
 namespace intrin {
@@ -383,7 +382,6 @@ namespace detail {
  *	- vec_single_div_*
  *	- vec_vector_div_*
 */
-#define SSE
 #ifdef SSE
 class vec_int16x8 {// int16_t[8]
 private:
@@ -400,13 +398,13 @@ public:
 	template<bool temporal>
 	inline void load(const int16_t* p, constexpr bool align = false) {
 		if constexpr (align)
-			vec = _mm_load_si128(p);
+			vec = _mm_load_si128((__m128i*)p);
 		else
-			vec = _mm_lddq_si128(p);
+			vec = _mm_lddqu_si128((__m128i*)p);
 	}
 	template<> inline void load<false>(const int16_t* p, constexpr bool align = true) {
 		static_assert(align,"Non temporal loads must be aligned!");
-		vec = _mm_stream_load_si128(p);
+		vec = _mm_stream_load_si128((__m128i*)p);
 	}
 	inline void load(const __m128i v) { vec = v; }
 	inline void load(const int16_t i) { vec = _mm_set1_epi16(i); }
@@ -435,13 +433,13 @@ public:
 	inline void operator+=(vec_int16x8 in) {
 		vec = _mm_add_epi16(vec, in.getVec());
 	}
-	inline vec_int16x8 operator-=(vec_int16x8 in) {
+	inline void operator-=(vec_int16x8 in) {
 		vec = _mm_sub_epi16(vec, in.getVec());
 	}
-	inline vec_int16x8 operator*=(vec_int16x8 in) {
+	inline void operator*=(vec_int16x8 in) {
 		vec = _mm_mullo_epi16(vec, in.getVec());
 	}
-	inline vec_int16x8 operator/=(vec_int16x8 in) {//Always correct
+	inline void operator/=(vec_int16x8 in) {//Always correct
 		vec = _mm_div_epi16(vec, in.getVec());
 	}
 	//Bitwise operator
@@ -450,7 +448,7 @@ public:
 	}
 	inline vec_int16x8 operator|(vec_int16x8 in) {
 		return (vec_int16x8)_mm_or_si128(vec, in.getVec());
-}
+	}
 	inline vec_int16x8 operator^(vec_int16x8 in) {
 		return (vec_int16x8)_mm_xor_si128(vec, in.getVec());
 	}
@@ -458,10 +456,10 @@ public:
 	inline void operator&=(vec_int16x8 in) {
 		vec = _mm_and_si128(vec, in.getVec());
 	}
-	inline vec_int16x8 operator|=(vec_int16x8 in) {
+	inline void operator|=(vec_int16x8 in) {
 		vec = _mm_or_si128(vec, in.getVec());
 	}
-	inline vec_int16x8 operator^=(vec_int16x8 in) {
+	inline void operator^=(vec_int16x8 in) {
 		vec = _mm_xor_si128(vec, in.getVec());
 	}
 };
@@ -480,13 +478,13 @@ public:
 	template<bool temporal>
 	inline void load(const uint16_t* p, constexpr bool align = false) {
 		if constexpr (align)
-			_mm_load_si128(p, vec);
+			vec = _mm_load_si128((__m128i*)p);
 		else
-			_mm_lddq_si128(p, vec);
+			vec = _mm_lddqu_si128((__m128i*)p);
 	}
 	template<> inline void load<false>(const uint16_t* p, constexpr bool align = true) {
 		static_assert(align, "Non temporal loads must be aligned!");
-		_mm_stream_load_si128(p, vec);
+		vec = _mm_stream_load_si128((__m128i*)p);
 	}
 	inline void load(const __m128i v) { vec = v; }
 	inline void load(const uint16_t i) { vec = _mm_set1_epi16(i); }
@@ -515,13 +513,13 @@ public:
 	inline void operator+=(vec_int16x8 in) {
 		vec = _mm_add_epu16(vec, in.getVec());
 	}
-	inline vec_int16x8 operator-=(vec_int16x8 in) {
+	inline void operator-=(vec_int16x8 in) {
 		vec = _mm_sub_epi16(vec, in.getVec());
 	}
-	inline vec_int16x8 operator*=(vec_int16x8 in) {
+	inline void operator*=(vec_int16x8 in) {
 		vec = _mm_mullo_epi16(vec, in.getVec());
 	}
-	inline vec_int16x8 operator/=(vec_int16x8 in) {//Always correct
+	inline void operator/=(vec_int16x8 in) {//Always correct
 		vec = _mm_div_epu16(vec, in.getVec());
 	}
 	//Bitwise operator
@@ -538,10 +536,90 @@ public:
 	inline void operator&=(vec_int16x8 in) {
 		vec = _mm_and_si128(vec, in.getVec());
 	}
-	inline vec_int16x8 operator|=(vec_int16x8 in) {
+	inline void operator|=(vec_int16x8 in) {
 		vec = _mm_or_si128(vec, in.getVec());
 	}
-	inline vec_int16x8 operator^=(vec_int16x8 in) {
+	inline void operator^=(vec_int16x8 in) {
+		vec = _mm_xor_si128(vec, in.getVec());
+	}
+};
+class vec_int32x4 {// int32_t[4]
+private:
+	__m128i vec;
+public:
+	//Constructors
+	vec_int16x8(const int32_t* p, constexpr bool align = false) { load<true>(p,align); }
+	vec_int16x8(const __m128i v) { load(v); }
+	vec_int16x8(const int32_t i) { vec = _mm_set1_epi32(i); }
+	vec_int16x8(const int32_t i1, const int32_t i2, const int32_t i3, const int32_t i4) { load(i1,i2,i3,i4); }
+
+	//Misc
+	inline __m128i getVec() { return vec; }
+	template<bool temporal>
+	inline void load(const int32_t* p, constexpr bool align = false) {
+		if constexpr (align)
+			vec = _mm_load_si128((__m128i*)p);
+		else
+			vec = _mm_lddqu_si128((__m128i*)p);
+	}
+	template<> inline void load<false>(const int32_t* p, constexpr bool align = true) {
+		static_assert(align,"Non temporal loads must be aligned!");
+		vec = _mm_stream_load_si128((__m128i*)p);
+	}
+	inline void load(const __m128i v) { vec = v; }
+	inline void load(const int32_t i) { vec = _mm_set1_epi32(i); }
+	inline void load(const int32_t i1, const int32_t i2, const int32_t i3, const int32_t i4) { 
+		vec = _mm_set_epi32(i1, i2, i3, i4); 
+	}
+	template<bool aligned, bool temporal> inline void store(const int32_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
+	template<> inline void store<true, true>(const int32_t* p) { _mm_store_si128((__m128i*)p,vec); }
+	template<> inline void store<false, true>(const int32_t* p) { _mm_storeu_si128((__m128i*)p, vec); }
+	template<> inline void store<true, false>(const int32_t* p) { _mm_stream_si128((__m128i*)p, vec); }
+
+	//Arithmetic operators
+	inline vec_int32x4 operator+(vec_int32x4 in){
+		return (vec_int32x4)_mm_add_epi32(vec, in.getVec());
+	}
+	inline vec_int32x4 operator-(vec_int32x4 in) {
+		return (vec_int32x4)_mm_sub_epi32(vec, in.getVec());
+	}
+	inline vec_int32x4 operator*(vec_int32x4 in) {
+		return (vec_int32x4)_mm_mullo_epi32(vec, in.getVec());
+	}
+	inline vec_int32x4 operator/(vec_int32x4 in) {//Always correct
+		return (vec_int32x4)_mm_div_epi32(vec, in.getVec());
+	}
+	//Arithmetic operators, acting on itself
+	inline void operator+=(vec_int32x4 in) {
+		vec = _mm_add_epi32(vec, in.getVec());
+	}
+	inline void operator-=(vec_int32x4 in) {
+		vec = _mm_sub_epi32(vec, in.getVec());
+	}
+	inline void operator*=(vec_int32x4 in) {
+		vec = _mm_mullo_epi32(vec, in.getVec());
+	}
+	inline void operator/=(vec_int32x4 in) {//Always correct
+		vec = _mm_div_epi32(vec, in.getVec());
+	}
+	//Bitwise operator
+	inline vec_int32x4 operator&(vec_int32x4 in) {
+		return (vec_int32x4)_mm_and_si128(vec, in.getVec());
+	}
+	inline vec_int32x4 operator|(vec_int32x4 in) {
+		return (vec_int32x4)_mm_or_si128(vec, in.getVec());
+	}
+	inline vec_int32x4 operator^(vec_int32x4 in) {
+		return (vec_int32x4)_mm_xor_si128(vec, in.getVec());
+	}
+	//Bitwise operators, acting on itself
+	inline void operator&=(vec_int32x4 in) {
+		vec = _mm_and_si128(vec, in.getVec());
+	}
+	inline void operator|=(vec_int32x4 in) {
+		vec = _mm_or_si128(vec, in.getVec());
+	}
+	inline void operator^=(vec_int32x4 in) {
 		vec = _mm_xor_si128(vec, in.getVec());
 	}
 };
