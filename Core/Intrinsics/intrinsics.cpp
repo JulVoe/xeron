@@ -328,7 +328,7 @@ namespace impl {
 #endif
 	}
 
-	inline __m128i _mm_div_epi32_rcp(const __m128& a, const __m128& b){
+	inline __m128i _mm_div_epi32_rcp(const __m128i& a, const __m128i& b){
 		//1.: Convert to float
 		const __m128 a_float = _mm128_cvtepi32_ps(a);
 		const __m128 b_float = _mm128_cvtepi32_ps(b);
@@ -342,7 +342,7 @@ namespace impl {
 		//4.: Convert back to epi32
 		return _mm_cvttps_epi32(c_float);
 	}
-	inline __m128i _mm_div_epi32_div(const __m128& a, const __m128& b) {
+	inline __m128i _mm_div_epi32_div(const __m128i& a, const __m128i& b) {
 		//1.: Convert to float
 		const __m128 a_float = _mm_cvtepi32_ps(a);
 		const __m128 b_float = _mm_cvtepi32_ps(b);
