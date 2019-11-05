@@ -330,28 +330,28 @@ namespace impl {
 
 	inline __m128i _mm_div_epi32_rcp(const __m128& a, const __m128& b){
 		//1.: Convert to float
-		const __m256 a_float = _mm256_cvtepi32_ps(a);
-		const __m256 b_float = _mm256_cvtepi32_ps(b);
+		const __m128 a_float = _mm128_cvtepi32_ps(a);
+		const __m128 b_float = _mm128_cvtepi32_ps(b);
 
 		//2.: Calculate reciprocal
-		const __m256 b_rcp = _mm_rcp_ps<1>(b_float);
+		const __m128 b_rcp = _mm_rcp_ps<1>(b_float);
 
 		//3.: Divide
-		const __m256 c_float = _mm256_mul_ps(a_float, b_rcp);
+		const __m128 c_float = _mm128_mul_ps(a_float, b_rcp);
 
 		//4.: Convert back to epi32
-		return _mm256_cvttps_epi32(c_float);
+		return _mm_cvttps_epi32(c_float);
 	}
 	inline __m128i _mm_div_epi32_div(const __m128& a, const __m128& b) {
 		//1.: Convert to float
-		const __m256 a_float = _mm256_cvtepi32_ps(a);
-		const __m256 b_float = _mm256_cvtepi32_ps(b);
+		const __m128 a_float = _mm_cvtepi32_ps(a);
+		const __m128 b_float = _mm_cvtepi32_ps(b);
 
 		//2.: Divide
-		const __m256 c_float = _mm256_div_ps(a_float, b_float);
+		const __m128 c_float = _mm_div_ps(a_float, b_float);
 
 		//3.: Convert back to epi32
-		return _mm256_cvttps_epi32(c_float);
+		return _mm_cvttps_epi32(c_float);
 	}
 	
 	
