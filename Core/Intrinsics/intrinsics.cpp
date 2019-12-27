@@ -378,7 +378,7 @@ public:
 	//Constructors
 	vec_int16x8(const int16_t* p, constexpr bool align = false) { load<true>(p,align); }
 	vec_int16x8(const __m128i v) { load(v); }
-	vec_int16x8(const int16_t i) { vec = _mm_set1_epi16(i); }
+	vec_int16x8(const int16_t i) { load(i); }
 	vec_int16x8(const int16_t i1, const int16_t i2, const int16_t i3, const int16_t i4, const int16_t i5, const int16_t i6, const int16_t i7, const int16_t i8) { load(i1,i2,i3,i4,i5,i6,i7,i8); }
 
 	//Misc
@@ -458,7 +458,7 @@ public:
 	//Constructors
 	vec_int16x8(const uint16_t* p, constexpr bool align = false) { load<true>(p, align); }
 	vec_int16x8(const __m128i v) { load(v); }
-	vec_int16x8(const uint16_t i) { vec = _mm_set1_epi16(i); }
+	vec_int16x8(const uint16_t i) { load(i); }
 	vec_int16x8(const uint16_t i1, const uint16_t i2, const uint16_t i3, const uint16_t i4, const uint16_t i5, const uint16_t i6, const uint16_t i7, const uint16_t i8) { load(i1, i2, i3, i4, i5, i6, i7, i8); }
 
 	//Misc
@@ -536,10 +536,10 @@ private:
 	__m128i vec;
 public:
 	//Constructors
-	vec_int16x8(const int32_t* p, constexpr bool align = false) { load<true>(p,align); }
-	vec_int16x8(const __m128i v) { load(v); }
-	vec_int16x8(const int32_t i) { vec = _mm_set1_epi32(i); }
-	vec_int16x8(const int32_t i1, const int32_t i2, const int32_t i3, const int32_t i4) { load(i1,i2,i3,i4); }
+	vec_int32x4(const int32_t* p, constexpr bool align = false) { load<true>(p,align); }
+	vec_int32x4(const __m128i v) { load(v); }
+	vec_int32x4(const int32_t i) { load(i); }
+	vec_int32x4(const int32_t i1, const int32_t i2, const int32_t i3, const int32_t i4) { load(i1,i2,i3,i4); }
 
 	//Misc
 	inline __m128i getVec() { return vec; }
