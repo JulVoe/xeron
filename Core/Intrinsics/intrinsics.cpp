@@ -415,7 +415,7 @@ public:
 		return (vec_int16x8)_mm_mullo_epi16(vec, in.getVec());
 	}
 	inline vec_int16x8 operator/(vec_int16x8 in) {//Always correct
-		return (vec_int16x8)_mm_div_epi16(vec, in.getVec());
+		return (vec_int16x8)impl::_mm_div_epi16(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_int16x8 in) {
@@ -428,7 +428,7 @@ public:
 		vec = _mm_mullo_epi16(vec, in.getVec());
 	}
 	inline void operator/=(vec_int16x8 in) {//Always correct
-		vec = _mm_div_epi16(vec, in.getVec());
+		vec = impl::_mm_div_epi16(vec, in.getVec());
 	}
 	//Bitwise operator
 	inline vec_int16x8 operator&(vec_int16x8 in) {
@@ -495,7 +495,7 @@ public:
 		return (vec_int16x8)_mm_mullo_epi16(vec, in.getVec());
 	}
 	inline vec_uint16x8 operator/(vec_uint16x8 in) {//Always correct
-		return (vec_uint16x8)_mm_div_epi16(vec, in.getVec());
+		return (vec_uint16x8)impl::_mm_div_epi16(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_int16x8 in) {
@@ -508,7 +508,7 @@ public:
 		vec = _mm_mullo_epi16(vec, in.getVec());
 	}
 	inline void operator/=(vec_int16x8 in) {//Always correct
-		vec = _mm_div_epu16(vec, in.getVec());
+		vec = impl::_mm_div_epu16(vec, in.getVec());
 	}
 	//Bitwise operator
 	inline vec_int16x8 operator&(vec_int16x8 in) {
@@ -575,7 +575,7 @@ public:
 		return (vec_int32x4)_mm_mullo_epi32(vec, in.getVec());
 	}
 	inline vec_int32x4 operator/(vec_int32x4 in) {//Always correct
-		return (vec_int32x4)_mm_div_epi32(vec, in.getVec());
+		return (vec_int32x4)impl::_mm_div_epi32(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_int32x4 in) {
@@ -588,7 +588,7 @@ public:
 		vec = _mm_mullo_epi32(vec, in.getVec());
 	}
 	inline void operator/=(vec_int32x4 in) {//Always correct
-		vec = _mm_div_epi32(vec, in.getVec());
+		vec = _impl::mm_div_epi32(vec, in.getVec());
 	}
 	//Bitwise operator
 	inline vec_int32x4 operator&(vec_int32x4 in) {
@@ -616,3 +616,5 @@ public:
 #endif
 }
 }
+
+//https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
