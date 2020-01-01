@@ -327,6 +327,9 @@ namespace impl {
 		return _mm_compress_epu32(lo_epi32, hi_epi32);
 #endif
 	}
+	
+	
+	
 
 	inline __m128i _mm_div_epi32_rcp(const __m128i& a, const __m128i& b){
 		//1.: Convert to float
@@ -618,3 +621,13 @@ public:
 }
 
 //https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
+
+
+
+
+/****************************************************
+ *                     Makros                       *
+ * - _mm_widen_ep[i,u]16                            *
+ * - _mm_compress_ep[i,u]32                         *
+ * - _mm_div_ep[i,u]16                              *
+ ****************************************************/
