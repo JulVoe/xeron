@@ -1,42 +1,51 @@
 #include "../SystemInfo/Makros.hpp"
 
 namespace intrin {
+
+/*******************************
+ *            Enums            *
+ *******************************/
+	
+//Integer division. Don't mess with the values or error messages will be wrong
+enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possible, FAST=not as precise, TRUNCATE=same behaviour as sisd integer division.
+enum { SMALL = 0, BIG = 1 }; //BIG=input can be as big as possible, SMALL=input has to be <=2^24
+	
 namespace impl {
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
-	inline void _mm_widen_epi16_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	ALWAYS_INLINE void _mm_widen_epi16_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		const __m128i sign = _mm_srai_epi16(in, 16);
 		out1 = _mm_unpackhi_epi16(in, sign);
 		out2 = _mm_unpacklo_epi16(in, sign);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	inline void _mm_widen_epu16_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	ALWAYS_INLINE void _mm_widen_epu16_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
 		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
 	}
 	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8] using saturation
-	inline __m128i _mm_compress_epi32_10(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_compress_epi32_10(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packs_epi32(in_lo, in_hi);
 	}
 	//Converts two int32_t[4] (in_lo, in_hi) to uint16_t[8] using saturation
 	//Note: also converts 2xuint32_t[4] to uint16_t[8] correct, if highest bit of elements isn't set
 	//	If that happens, output will be zero and not uint16_t::max()
-	inline __m128i _mm_compress_epu32_10(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_compress_epu32_10(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packus_epi32(in_lo, in_hi);
 	}
 	
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2) 
-	inline void _mm_widen_epi16_20(const __m128i in, __m128i& out1, __m128i& out2) {
+	ALWAYS_INLINE void _mm_widen_epi16_20(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_srai_epi32(in, 16);
 		const __m128i out2_tmp = _mm_slli_epi32(in, 16);
 		out2 = _mm_srai_epi32(out2_tmp, 16);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	inline void _mm_widen_epu16_20(const __m128i in, __m128i& out1, __m128i& out2) {
+	ALWAYS_INLINE void _mm_widen_epu16_20(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_srli_epi32(in, 16);
 		out2 = _mm_and_si128(in, _mm_set1_epi32(0xFF));
 	}
 	//Converts two [u]int32_t[4] (in_lo, in_hi) to [u]int16_t[8] using truncation.
-	inline __m128i _mm_compress_epi32_20(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_compress_epi32_20(const __m128i in_lo, const __m128i in_hi) {
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 #if SSE >= 41
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
@@ -48,7 +57,7 @@ namespace impl {
 	}
 	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8]
 	//If SSE4.1 is available, truncation is used, otherwiese saturation. 
-	inline __m128i _mm_compress_epi32_21(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_compress_epi32_21(const __m128i in_lo, const __m128i in_hi) {
 #if SSE >= 41
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
@@ -59,7 +68,7 @@ namespace impl {
 	//Converts two uint32_t[4] (in_lo, in_hi) to uint16_t[8]
 	//If SSE4.1 is available, truncation is used, otherwiese saturation.
 	//Note: If SSE4.1 is not available, no highest bit of the input should be set or the output will be 0 (see _mm_compress_epu32_10)
-	inline __m128i _mm_compress_epi32_21(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_compress_epi32_21(const __m128i in_lo, const __m128i in_hi) {
 #if SSE >= 41
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
@@ -69,13 +78,13 @@ namespace impl {
 	}
 	
 	//Converts int32_t[8] to int16_t[8] using saturation
-	inline __m128i _mm256_compress_epi32(__m256i in){
+	ALWAYS_INLINE __m128i _mm256_compress_epi32(__m256i in){
 		_mm_compress_epi32_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
 	//Converts uint32_t[8] (in) to uint16_t[8] using saturation
 	//Note: If the highest bit of on element of in is set, the corresponding returned element will be 0
 	//	(see _mm_compress_epi32_10)
-	inline __m128i _mm256_compress_epu32(__m256i in){
+	ALWAYS_INLINE __m128i _mm256_compress_epu32(__m256i in){
 		_mm_compress_epi32_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
 
@@ -83,7 +92,7 @@ namespace impl {
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
 	//Approximates the inverse of float[4] (in) using intrinsic and n passes of newton iterations
 	template<unsigned n>
-	__m128 _mm_rcp_ps(const __m128 in) {
+	ALWAYS_INLINE __m128 _mm_rcp_ps(const __m128 in) {
 		const __m128  two = _mm_set1_ps(2.00000051757f);
 		__m128 ret = _mm_rcp_ps(in);
 
@@ -101,8 +110,8 @@ namespace impl {
 	}
 	//Approximates the inverse of float[8] (in) using intrinsic and n passes of newton iterations
 	template<unsigned n>
-	__m256 _mm256_rcp_ps(const __m256 in) {
-		const __m256  two = _mm256_set1_ps(2.00000051757f);
+	ALWAYS_INLINE __m256 _mm256_rcp_ps(const __m256 in) {
+		const __m256  two = _mm256_set1_ps(2.0f);
 		__m256 ret = _mm256_rcp_ps(in);
 
 		for (unsigned i = 0; i < n; i++) {
@@ -116,7 +125,7 @@ namespace impl {
 		}
 		return ret;
 	}
-
+//--------------------------------------_mm_div_ep[i,u]32--------------------------------------//
 	/* https://stackoverflow.com/questions/50597764/convert-signed-short-to-float-in-c-simd
 	 * https://stackoverflow.com/questions/9161807/sse-convert-short-integer-to-float
 	 * https://stackoverflow.com/questions/41228180/how-can-i-convert-a-vector-of-float-to-short-int-using-avx-instructions
@@ -124,7 +133,7 @@ namespace impl {
 	*/
 	//Divides a_epi16 by b_epi16 elementwise
 	//Note: Correctness has to be verified
-	inline __m128i _mm_div_epi16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) {
+	ALWAYS_INLINE __m128i _mm_div_epi16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) {
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
@@ -179,7 +188,7 @@ namespace impl {
 	}
 	//Divides a_epi16 by b_epi16 elementwise
 	//Note: Result will always be correct
-	inline __m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) {
+	ALWAYS_INLINE __m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) {
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
@@ -226,7 +235,7 @@ namespace impl {
 	}
 	//Divides a_epu16 by b_epu16 elementwise
 	//Note: Correctness has to be verified
-	inline __m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { 
+	ALWAYS_INLINE __m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { 
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
@@ -281,7 +290,7 @@ namespace impl {
 	}
 	//Divides a_epu16 by b_epu16 elementwise
 	//Note: Will always be correct
-	inline __m128i _mm_div_epu16_div(const __m128i &a_epu16, const __m128i &b_epu16) {
+	ALWAYS_INLINE __m128i _mm_div_epu16_div(const __m128i &a_epu16, const __m128i &b_epu16) {
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
@@ -328,34 +337,141 @@ namespace impl {
 #endif
 	}
 	
-	
-	
+//--------------------------------------_mm_div_epi32--------------------------------------//
+	//Divides a by b elementwise. It doesn't matter wether a nd b are signed or unsigned.
+	//_mm_idiv_epi32_split with the extra assumption that a<=2^24. Very fast. Precise für a<=2^24. From there on inprecise for small b.
+	template<int round, typename T=__m128i>
+	ALWAYS_INLINE __m128i _mm_idiv_epi32_small(__m128i a, __m128i b) {
+		//Are the template parameters valid?
+		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_small has to be either TRUNCATE(1) or PRECISE(2)!");
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_small can only return either __m128i or __m128!");
 
-	inline __m128i _mm_div_epi32_rcp(const __m128i& a, const __m128i& b){
-		//1.: Convert to float
-		const __m128 a_float = _mm128_cvtepi32_ps(a);
-		const __m128 b_float = _mm128_cvtepi32_ps(b);
+		//Computation
+		const __m128 fa = _mm_cvtepi32_ps(a);
+		const __m128 fb = _mm_cvtepi32_ps(b);
+		const __m128 fr = _mm_div_ps(fa, fb);
 
-		//2.: Calculate reciprocal
-		const __m128 b_rcp = _mm_rcp_ps<1>(b_float);
-
-		//3.: Divide
-		const __m128 c_float = _mm128_mul_ps(a_float, b_rcp);
-
-		//4.: Convert back to epi32
-		return _mm_cvttps_epi32(c_float);
+		//Return in the right form
+		if constexpr (typeid(T) == typeid(__m128i)) {
+			if constexpr (round == PRECISE)
+				return _mm_cvtps_epi32(fr);
+			else if constexpr (round == TRUNCATE)
+				return _mm_cvttps_epi32(fr);
+		}
+		else if constexpr (typeid(T) == typeid(__m128)) {
+			return fr;
+		}
+		else {
+			UNREACHABLE();
+		}
 	}
-	inline __m128i _mm_div_epi32_div(const __m128i& a, const __m128i& b) {
-		//1.: Convert to float
-		const __m128 a_float = _mm_cvtepi32_ps(a);
-		const __m128 b_float = _mm_cvtepi32_ps(b);
+	//Divides a by b elementwise. It doesn't matter wether a nd b are signed or unsigned.
+	//Very fast. Precise für a<=2^24. From there on inprecise for small b. Uses _mm_rcp_ps with multiplication instead of division
+	template<int round, typename T = __m128i>
+	ALWAYS_INLINE __m128i _mm_idiv_epi32_small_rcp(__m128i a, __m128i b) {
+		//Are the template parameters valid?
+		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_small_rcp has to be either TRUNCATE(1) or PRECISE(2)!");
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_small_rcp can only return either __m128i or __m128!");
 
-		//2.: Divide
-		const __m128 c_float = _mm_div_ps(a_float, b_float);
+		//Computation
+		const __m128 fa = _mm_cvtepi32_ps(a);
+		const __m128 fb = _mm_cvtepi32_ps(b);
 
-		//3.: Convert back to epi32
-		return _mm_cvttps_epi32(c_float);
+		const __m128 rcp = _mm_rcp_ps<0>(fb);
+		const __m128 fr = _mm_mul_ps(fa, rcp);
+
+		//Return in the right form
+		if constexpr (typeid(T) == typeid(__m128i)) {
+			if constexpr (round == PRECISE)
+				return _mm_cvtps_epi32(fr);
+			else if constexpr (round == TRUNCATE)
+				return _mm_cvttps_epi32(fr);
+		}
+		else if constexpr (typeid(T) == typeid(__m128)) {
+			return fr;
+		}
+		else {
+			UNREACHABLE();
+		}
 	}
+	//Divides a by b elementwise. It doesn't matter wether a nd b are signed or unsigned.
+	//Converts a and b to 256-double vectors and divides them. Very precise.
+	template<int round, typename T = __m128i>
+	ALWAYS_INLINE __m128i _mm_idiv_epi32_avx(__m128i a, __m128i b) {
+		//Are the template parameters valid?
+		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_avx has to be either TRUNCATE(1) or PRECISE(2)!");
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_avx can only return either __m128i or __m128!");
+
+		//Computation
+		const __m256d da = _mm256_cvtepi32_pd(a);
+		const __m256d db = _mm256_cvtepi32_pd(b);
+		const __m256d dr = _mm256_div_pd(da, db);
+
+		//Return in the right form
+		if constexpr (typeid(T) == typeid(__m128i)) {
+			if constexpr (round == PRECISE)
+				return _mm256_cvtpd_epi32(dr);
+			else if constexpr (round == TRUNCATE)
+				return _mm256_cvttpd_epi32(dr);
+		}
+		else if constexpr (typeid(T) == typeid(__m128)) {
+			return _mm256_cvtpd_ps(dr);
+		}
+		else {
+			UNREACHABLE();
+		}
+	}
+	//Divides a by b elementwise. It doesn't matter wether a nd b are signed or unsigned.
+	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
+	template<int round, typename T = __m128i>
+	ALWAYS_INLINE __m128i _mm_idiv_epi32_split(__m128i a, __m128i b) {
+		//Are the template parameters valid?
+		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_split has to be either TRUNCATE(1) or PRECISE(2)!");
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_split can only return either __m128i or __m128!");
+
+		//Computation
+		const __m128 ha = _mm_cvtepi32_ps(_mm_srli_epi32(a, 24));//High 8 bits of a
+		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1)));//Lower 24 bits of a, will fit in mantissa of float
+		const __m128 fb = _mm_cvtepi32_ps(b);//If has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
+
+		const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+		const __m128 fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+
+		//Return in the right form
+		if constexpr (typeid(T) == typeid(__m128i)) {
+			if constexpr (round == PRECISE)
+				return _mm_cvtps_epi32(fr);
+			else if constexpr (round == TRUNCATE)
+				return _mm_cvttps_epi32(fr);
+		}
+		else if constexpr (typeid(T) == typeid(__m128)) {
+			return fr;
+		}
+		else {
+			UNREACHABLE();
+		}
+	}
+
+	//Vector-equivalent of "return (T)a/(T)b;"
+	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
+	ALWAYS_INLINE T _mm_idiv_epi32(__m128i a, __m128i b) {
+		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epi32 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
+		static_assert(size == BIG || size == SMALL, "_mm_idiv_epi32 unterstützt nur size 0 oder 1!");
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32 can only return either __m128i or __m128!");
+		UNREACHABLE();
+	}
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <PRECISE,  __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE,  __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <TRUNCATE, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<PRECISE,  __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE,  __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<TRUNCATE, __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __m128 >(a, b); }
 	
 	
 	//https://stackoverflow.com/questions/9161807/sse-convert-short-integer-to-float
@@ -627,7 +743,8 @@ public:
 
 /****************************************************
  *                     Makros                       *
- * - _mm_widen_ep[i,u]16                            *
- * - _mm_compress_ep[i,u]32                         *
- * - _mm_div_ep[i,u]16                              *
+ * - _mm_widen_ep[i,u]16 and _mm_compress_ep[i,u]32 * _10, _20, _21 | speed (benchmark together, roundtrip)
+ * - _mm_div_ep[i,u]16                              * _div, _rcp    | speed
+ * - _mm_idiv_epi32_precise_int                     * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support&speed (<PRECISE, __m128i>)
+ * - _mm_idiv_epi32_precise_float                   * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support&speed (<PRECISE, __m128>)
  ****************************************************/
