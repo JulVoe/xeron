@@ -494,20 +494,59 @@ namespace impl {
 	}
 	//Divides a by b elementwise. Also works for unsigned :)
 	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
-	//TODO: rcp instead of div
-	template<int round, typename T = __m128i>
+	//rcp: 0=div-div, 1=div-rcp, 2=rcp-div, 3=rcp-rcp. Fast has 0 Newton-iterations, otherwise 1.
+	template<int round, typename T = __m128i, int rcp, bool fast>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_split(__m128i a, __m128i b) {
 		//Are the template parameters valid?
 		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_split has to be either TRUNCATE(1) or PRECISE(2)!");
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_split can only return either __m128i or __m128!");
-
+		static_assert(rcp==0 || rcp==1 || rcp==2 || rcp==3, "_mm_idiv_epi32_split only accepts rcp 0 to 3");
+	
 		//Computation
 		const __m128 ha = _mm_cvtepi32_ps(_mm_srli_epi32(a, 24));//High 8 bits of a
 		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1)));//Lower 24 bits of a, will fit in mantissa of float
 		const __m128 fb = _mm_cvtepi32_ps(b);//If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
 
-		const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-		const __m128 fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+		__m128 fr;
+		if constexpr(fast){
+			if constexpr(rcp==0){
+				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else if constexpr(rcp==1){
+				const __m128 rcp = _mm_rcp_ps<0>(fb);
+				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else if constexpr(rcp==2){
+				const __m128 rcp = _mm_rcp_ps<0>(fb);
+				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else if constexpr(rcp==3){
+				const __m128 rcp = _mm_rcp_ps<0>(fb);
+				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else {
+				UNREACHABLE();
+			}
+		} else {
+			if constexpr(rcp==0){
+				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else if constexpr(rcp==1){
+				const __m128 rcp = _mm_rcp_ps<1>(fb);
+				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else if constexpr(rcp==2){
+				const __m128 rcp = _mm_rcp_ps<1>(fb);
+				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else if constexpr(rcp==3){
+				const __m128 rcp = _mm_rcp_ps<1>(fb);
+				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			} else {
+				UNREACHABLE();
+			}
+		}
 
 		//Return in the right form
 		if constexpr (typeid(T) == typeid(__m128i)) {
