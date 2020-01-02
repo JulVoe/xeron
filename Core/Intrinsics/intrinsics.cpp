@@ -338,7 +338,7 @@ namespace impl {
 	}
 	
 //--------------------------------------_mm_div_epi32--------------------------------------//
-	//Divides a by b elementwise. It doesn't matter wether a nd b are signed or unsigned.
+	//Divides a by b elementwise.
 	//_mm_idiv_epi32_split with the extra assumption that a<=2^24. Very fast. Precise für a<=2^24. From there on inprecise for small b.
 	template<int round, typename T=__m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_small(__m128i a, __m128i b) {
@@ -365,7 +365,7 @@ namespace impl {
 			UNREACHABLE();
 		}
 	}
-	//Divides a by b elementwise. It doesn't matter wether a nd b are signed or unsigned.
+	//Divides a by b elementwise.
 	//Very fast. Precise für a<=2^24. From there on inprecise for small b. Uses _mm_rcp_ps with multiplication instead of division
 	template<int round, typename T = __m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_small_rcp(__m128i a, __m128i b) {
@@ -421,7 +421,7 @@ namespace impl {
 			UNREACHABLE();
 		}
 	}
-	//Divides a by b elementwise. It doesn't matter wether a nd b are signed or unsigned.
+	//Divides a by b elementwise.
 	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
 	template<int round, typename T = __m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_split(__m128i a, __m128i b) {
