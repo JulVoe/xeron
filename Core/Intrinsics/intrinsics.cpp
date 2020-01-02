@@ -492,8 +492,9 @@ namespace impl {
 			UNREACHABLE();
 		}
 	}
-	//Divides a by b elementwise.
+	//Divides a by b elementwise. Also works for unsigned :)
 	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
+	//TODO: rcp instead of div
 	template<int round, typename T = __m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_split(__m128i a, __m128i b) {
 		//Are the template parameters valid?
@@ -503,7 +504,7 @@ namespace impl {
 		//Computation
 		const __m128 ha = _mm_cvtepi32_ps(_mm_srli_epi32(a, 24));//High 8 bits of a
 		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1)));//Lower 24 bits of a, will fit in mantissa of float
-		const __m128 fb = _mm_cvtepi32_ps(b);//If has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
+		const __m128 fb = _mm_cvtepi32_ps(b);//If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
 
 		const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
 		const __m128 fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
