@@ -605,26 +605,26 @@ public:
 
 	//Arithmetic operators
 	inline vec_uint16x8 operator+(vec_uint16x8 in) {
-		return (vec_uint16x8)_mm_add_epi16(vec, in.getVec());
+		return (vec_uint16x8)_mm_adds_epu16(vec, in.getVec());
 	}
 	inline vec_uint16x8 operator-(vec_uint16x8 in) {
-		return (vec_uint16x8)_mm_sub_epi16(vec, in.getVec());
+		return (vec_uint16x8)_mm_subs_epu16(vec, in.getVec());
 	}
 	inline vec_uint16x8 operator*(vec_uint16x8 in) {
-		return (vec_int16x8)_mm_mullo_epi16(vec, in.getVec());
+		return (vec_int16x8)_mm_mullo_epi16(vec, in.getVec()); //Works for unsigned too
 	}
 	inline vec_uint16x8 operator/(vec_uint16x8 in) {//Always correct
-		return (vec_uint16x8)impl::_mm_div_epi16(vec, in.getVec());
+		return (vec_uint16x8)impl::_mm_div_epu16(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_int16x8 in) {
-		vec = _mm_add_epu16(vec, in.getVec());
+		vec = _mm_adds_epu16(vec, in.getVec());
 	}
 	inline void operator-=(vec_int16x8 in) {
-		vec = _mm_sub_epi16(vec, in.getVec());
+		vec = _mm_subs_epu16(vec, in.getVec());
 	}
 	inline void operator*=(vec_int16x8 in) {
-		vec = _mm_mullo_epi16(vec, in.getVec());
+		vec = _mm_mullo_epi16(vec, in.getVec()); //Works for unsigned too
 	}
 	inline void operator/=(vec_int16x8 in) {//Always correct
 		vec = impl::_mm_div_epu16(vec, in.getVec());
