@@ -621,9 +621,17 @@ namespace impl {
 		//Return in the right form
 		if constexpr (typeid(T) == typeid(__m128i)) {
 			if constexpr (round == PRECISE)
+#ifdef AVX512
+				return _mm_cvtps_epu32(fr);
+#else
 				return _mm_cvtps_epi32(fr);
+#endif
 			else if constexpr (round == TRUNCATE)
+#ifdef AVX512
+				return _mm_cvttps_epu32(fr);
+#else
 				return _mm_cvttps_epi32(fr);
+#endif
 		}
 		else if constexpr (typeid(T) == typeid(__m128)) {
 			return fr;
