@@ -984,10 +984,10 @@ private:
 	__m128i vec;
 public:
 	//Constructors
-	vec_int32x4(const uint32_t* p, constexpr bool align = false) { load<true>(p,align); }
-	vec_int32x4(const __m128i v) { load(v); }
-	vec_int32x4(const uint32_t i) { load(i); }
-	vec_int32x4(const uint32_t i1, const uint32_t i2, const uint32_t i3, const uint32_t i4) { load(i1,i2,i3,i4); }
+	vec_uint32x4(const uint32_t* p, constexpr bool align = false) { load<true>(p,align); }
+	vec_uint32x4(const __m128i v) { load(v); }
+	vec_uint32x4(const uint32_t i) { load(i); }
+	vec_uint32x4(const uint32_t i1, const uint32_t i2, const uint32_t i3, const uint32_t i4) { load(i1,i2,i3,i4); }
 
 	//Misc
 	inline __m128i getVec() { return vec; }
@@ -1076,6 +1076,86 @@ public:
 		vec = _mm_or_si128(vec, in.getVec());
 	}
 	inline void operator^=(vec_uint32x4 in) {
+		vec = _mm_xor_si128(vec, in.getVec());
+	}
+};
+class vec_floatx4 {// float[4]
+private:
+	__m128i vec;
+public:
+	//Constructors
+	vec_floatx4(const float* p, constexpr bool align = false) { load<true>(p,align); }
+	vec_floatx4(const __m128i v) { load(v); }
+	vec_floatx4(const float i) { load(i); }
+	vec_floatx4(const float i1, const float i2, const float i3, const float i4) { load(i1,i2,i3,i4); }
+
+	//Misc
+	inline __m128i getVec() { return vec; }
+	template<bool temporal>
+	inline void load(const float* p, constexpr bool align = false) {
+		if constexpr (align)
+			vec = _mm_load_si128((__m128i*)p);
+		else
+			vec = _mm_lddqu_si128((__m128i*)p);
+	}
+	template<> inline void load<false>(const float* p, constexpr bool align = true) {
+		static_assert(align,"Non temporal loads must be aligned!");
+		vec = _mm_stream_load_si128((__m128i*)p);
+	}
+	inline void load(const __m128i v) { vec = v; }
+	inline void load(const float i) { vec = _mm_set1_ps(i); }
+	inline void load(const float i1, const float i2, const float i3, const float i4) { 
+		vec = _mm_set_ps(i1, i2, i3, i4); 
+	}
+	template<bool aligned, bool temporal> inline void store(const float* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
+	template<> inline void store<true, true>(const float* p) { _mm_store_si128((__m128i*)p,vec); }
+	template<> inline void store<false, true>(const float* p) { _mm_storeu_si128((__m128i*)p, vec); }
+	template<> inline void store<true, false>(const float* p) { _mm_stream_si128((__m128i*)p, vec); }
+
+	//Arithmetic operators
+	inline vec_floatx4 operator+(vec_floatx4 in){
+		return (vec_floatx4)_mm_add_ps(vec, in.getVec());
+	}
+	inline vec_floatx4 operator-(vec_floatx4 in) {
+		return (vec_floatx4)_mm_sub_ps(vec, in.getVec());
+	}
+	inline vec_floatx4 operator*(vec_floatx4 in) {
+		return (vec_floatx4)_mm_mul_ps(vec, in.getVec());
+	}
+	inline vec_floatx4 operator/(vec_floatx4 in) {//Always correct
+		return (vec_floatx4)_mm_div_ps(vec, in.getVec());
+	}
+	//Arithmetic operators, acting on itself
+	inline void operator+=(vec_floatx4 in) {
+		vec = _mm_add_ps(vec, in.getVec());
+	}
+	inline void operator-=(vec_floatx4 in) {
+		vec = _mm_sub_ps(vec, in.getVec());
+	}
+	inline void operator*=(vec_floatx4 in) {
+		vec = _mm_mul_ps(vec, in.getVec());
+	}
+	inline void operator/=(vec_floatx4 in) {//Always correct
+		vec = _mm_div_ps(vec, in.getVec());
+	}
+	//Bitwise operator
+	inline vec_floatx4 operator&(vec_floatx4 in) {
+		return (vec_floatx4)_mm_and_si128(vec, in.getVec());
+	}
+	inline vec_floatx4 operator|(vec_floatx4 in) {
+		return (vec_floatx4)_mm_or_si128(vec, in.getVec());
+	}
+	inline vec_floatx4 operator^(vec_floatx4 in) {
+		return (vec_floatx4)_mm_xor_si128(vec, in.getVec());
+	}
+	//Bitwise operators, acting on itself
+	inline void operator&=(vec_floatx4 in) {
+		vec = _mm_and_si128(vec, in.getVec());
+	}
+	inline void operator|=(vec_floatx4 in) {
+		vec = _mm_or_si128(vec, in.getVec());
+	}
+	inline void operator^=(vec_floatx4 in) {
 		vec = _mm_xor_si128(vec, in.getVec());
 	}
 };
