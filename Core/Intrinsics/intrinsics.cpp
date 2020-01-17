@@ -925,8 +925,8 @@ public:
 #else
     		__m128i a13 = _mm_shuffle_epi32(vec, 0xF5);            // (-,a3,-,a1)
     		__m128i b13 = _mm_shuffle_epi32(in.getVec(), 0xF5);    // (-,b3,-,b1)
-   		__m128i prod02 = _mm_mul_epu32(vec, in.getVec());      // (-,a2*b2,-,a0*b0)
-    		__m128i prod13 = _mm_mul_epu32(a13, b13);              // (-,a3*b3,-,a1*b1)
+   		__m128i prod02 = _mm_mul_epi32(vec, in.getVec());      // (-,a2*b2,-,a0*b0)
+    		__m128i prod13 = _mm_mul_epi32(a13, b13);              // (-,a3*b3,-,a1*b1)
    		__m128i prod01 = _mm_unpacklo_epi32(prod02, prod13);   // (-,-,a1*b1,a0*b0) 
     		__m128i prod23 = _mm_unpackhi_epi32(prod02, prod13);   // (-,-,a3*b3,a2*b2) 
     		return           _mm_unpacklo_epi64(prod01, prod23);   // (ab3,ab2,ab1,ab0)
@@ -948,8 +948,8 @@ public:
 #else
     		__m128i a13 = _mm_shuffle_epi32(vec, 0xF5);            // (-,a3,-,a1)
     		__m128i b13 = _mm_shuffle_epi32(in.getVec(), 0xF5);    // (-,b3,-,b1)
-   		__m128i prod02 = _mm_mul_epu32(vec, in.getVec());      // (-,a2*b2,-,a0*b0)
-    		__m128i prod13 = _mm_mul_epu32(a13, b13);              // (-,a3*b3,-,a1*b1)
+   		__m128i prod02 = _mm_mul_epi32(vec, in.getVec());      // (-,a2*b2,-,a0*b0)
+    		__m128i prod13 = _mm_mul_epi32(a13, b13);              // (-,a3*b3,-,a1*b1)
    		__m128i prod01 = _mm_unpacklo_epi32(prod02, prod13);   // (-,-,a1*b1,a0*b0) 
     		__m128i prod23 = _mm_unpackhi_epi32(prod02, prod13);   // (-,-,a3*b3,a2*b2) 
     		vec = _mm_unpacklo_epi64(prod01, prod23);              // (ab3,ab2,ab1,ab0)
@@ -976,6 +976,106 @@ public:
 		vec = _mm_or_si128(vec, in.getVec());
 	}
 	inline void operator^=(vec_int32x4 in) {
+		vec = _mm_xor_si128(vec, in.getVec());
+	}
+};
+class vec_uint32x4 {// uint32_t[4]
+private:
+	__m128i vec;
+public:
+	//Constructors
+	vec_int32x4(const uint32_t* p, constexpr bool align = false) { load<true>(p,align); }
+	vec_int32x4(const __m128i v) { load(v); }
+	vec_int32x4(const uint32_t i) { load(i); }
+	vec_int32x4(const uint32_t i1, const uint32_t i2, const uint32_t i3, const uint32_t i4) { load(i1,i2,i3,i4); }
+
+	//Misc
+	inline __m128i getVec() { return vec; }
+	template<bool temporal>
+	inline void load(const uint32_t* p, constexpr bool align = false) {
+		if constexpr (align)
+			vec = _mm_load_si128((__m128i*)p);
+		else
+			vec = _mm_lddqu_si128((__m128i*)p);
+	}
+	template<> inline void load<false>(const uint32_t* p, constexpr bool align = true) {
+		static_assert(align,"Non temporal loads must be aligned!");
+		vec = _mm_stream_load_si128((__m128i*)p);
+	}
+	inline void load(const __m128i v) { vec = v; }
+	inline void load(const uint32_t i) { vec = _mm_set1_epi32(i); }
+	inline void load(const uint32_t i1, const uint32_t i2, const uint32_t i3, const uint32_t i4) { 
+		vec = _mm_set_epi32(i1, i2, i3, i4); 
+	}
+	template<bool aligned, bool temporal> inline void store(const uint32_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
+	template<> inline void store<true, true>(const uint32_t* p) { _mm_store_si128((__m128i*)p,vec); }
+	template<> inline void store<false, true>(const uint32_t* p) { _mm_storeu_si128((__m128i*)p, vec); }
+	template<> inline void store<true, false>(const uint32_t* p) { _mm_stream_si128((__m128i*)p, vec); }
+
+	//Arithmetic operators
+	inline vec_uint32x4 operator+(vec_uint32x4 in){
+		return (vec_uint32x4)_mm_add_epi32(vec, in.getVec());
+	}
+	inline vec_uint32x4 operator-(vec_uint32x4 in) {
+		return (vec_uint32x4)_mm_sub_epi32(vec, in.getVec());
+	}
+	inline vec_uint32x4 operator*(vec_uint32x4 in) {
+#ifdef SSE41
+		return (vec_uint32x4)_mm_mullo_epi32(vec, in.getVec());
+#else
+    		__m128i a13 = _mm_shuffle_epi32(vec, 0xF5);            // (-,a3,-,a1)
+    		__m128i b13 = _mm_shuffle_epi32(in.getVec(), 0xF5);    // (-,b3,-,b1)
+   		__m128i prod02 = _mm_mul_epu32(vec, in.getVec());      // (-,a2*b2,-,a0*b0)
+    		__m128i prod13 = _mm_mul_epu32(a13, b13);              // (-,a3*b3,-,a1*b1)
+   		__m128i prod01 = _mm_unpacklo_epi32(prod02, prod13);   // (-,-,a1*b1,a0*b0) 
+    		__m128i prod23 = _mm_unpackhi_epi32(prod02, prod13);   // (-,-,a3*b3,a2*b2) 
+    		return           _mm_unpacklo_epi64(prod01, prod23);   // (ab3,ab2,ab1,ab0)
+#endif
+	}
+	inline vec_uint32x4 operator/(vec_uint32x4 in) {//Always correct
+		return (vec_uint32x4)impl::_mm_idiv_epu32<TRUNCATE,BIG,__m128i>(vec, in.getVec());
+	}
+	//Arithmetic operators, acting on itself
+	inline void operator+=(vec_uint32x4 in) {
+		vec = _mm_add_epi32(vec, in.getVec());
+	}
+	inline void operator-=(vec_uint32x4 in) {
+		vec = _mm_sub_epi32(vec, in.getVec());
+	}
+	inline void operator*=(vec_uint32x4 in) {
+#ifdef SSE41
+		vec = _mm_mullo_epi32(vec, in.getVec());
+#else
+    		__m128i a13 = _mm_shuffle_epi32(vec, 0xF5);            // (-,a3,-,a1)
+    		__m128i b13 = _mm_shuffle_epi32(in.getVec(), 0xF5);    // (-,b3,-,b1)
+   		__m128i prod02 = _mm_mul_epu32(vec, in.getVec());      // (-,a2*b2,-,a0*b0)
+    		__m128i prod13 = _mm_mul_epu32(a13, b13);              // (-,a3*b3,-,a1*b1)
+   		__m128i prod01 = _mm_unpacklo_epi32(prod02, prod13);   // (-,-,a1*b1,a0*b0) 
+    		__m128i prod23 = _mm_unpackhi_epi32(prod02, prod13);   // (-,-,a3*b3,a2*b2) 
+    		vec = _mm_unpacklo_epi64(prod01, prod23);              // (ab3,ab2,ab1,ab0)
+#endif
+	}
+	inline void operator/=(vec_uint32x4 in) {//Always correct
+		vec = _impl::_mm_idiv_epu32<TRUNCATE,BIG,__m128i>(vec, in.getVec());
+	}
+	//Bitwise operator
+	inline vec_uint32x4 operator&(vec_uint32x4 in) {
+		return (vec_uint32x4)_mm_and_si128(vec, in.getVec());
+	}
+	inline vec_uint32x4 operator|(vec_uint32x4 in) {
+		return (vec_uint32x4)_mm_or_si128(vec, in.getVec());
+	}
+	inline vec_uint32x4 operator^(vec_uint32x4 in) {
+		return (vec_uint32x4)_mm_xor_si128(vec, in.getVec());
+	}
+	//Bitwise operators, acting on itself
+	inline void operator&=(vec_uint32x4 in) {
+		vec = _mm_and_si128(vec, in.getVec());
+	}
+	inline void operator|=(vec_uint32x4 in) {
+		vec = _mm_or_si128(vec, in.getVec());
+	}
+	inline void operator^=(vec_uint32x4 in) {
 		vec = _mm_xor_si128(vec, in.getVec());
 	}
 };
