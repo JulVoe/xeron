@@ -1081,7 +1081,7 @@ public:
 };
 class vec_floatx4 {// float[4]
 private:
-	__m128i vec;
+	__m128 vec;
 public:
 	//Constructors
 	vec_floatx4(const float* p, constexpr bool align = false) { load<true>(p,align); }
@@ -1140,23 +1140,23 @@ public:
 	}
 	//Bitwise operator
 	inline vec_floatx4 operator&(vec_floatx4 in) {
-		return (vec_floatx4)_mm_and_si128(vec, in.getVec());
+		return (vec_floatx4)_mm_and_ps(vec, in.getVec());
 	}
 	inline vec_floatx4 operator|(vec_floatx4 in) {
-		return (vec_floatx4)_mm_or_si128(vec, in.getVec());
+		return (vec_floatx4)_mm_or_ps(vec, in.getVec());
 	}
 	inline vec_floatx4 operator^(vec_floatx4 in) {
-		return (vec_floatx4)_mm_xor_si128(vec, in.getVec());
+		return (vec_floatx4)_mm_xor_ps(vec, in.getVec());
 	}
 	//Bitwise operators, acting on itself
 	inline void operator&=(vec_floatx4 in) {
-		vec = _mm_and_si128(vec, in.getVec());
+		vec = _mm_and_ps(vec, in.getVec());
 	}
 	inline void operator|=(vec_floatx4 in) {
-		vec = _mm_or_si128(vec, in.getVec());
+		vec = _mm_or_ps(vec, in.getVec());
 	}
 	inline void operator^=(vec_floatx4 in) {
-		vec = _mm_xor_si128(vec, in.getVec());
+		vec = _mm_xor_ps(vec, in.getVec());
 	}
 };
 #else
