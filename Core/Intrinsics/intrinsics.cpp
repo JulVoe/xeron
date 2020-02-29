@@ -22,6 +22,19 @@ namespace impl {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
 		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
 	}
+#if SSE>=41
+	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
+	ALWAYS_INLINE void _mm_widen_epi16_11(const __m128i in, __m128i& out1, __m128i& out2) {
+		const __m128i sign = _mm_srai_epi16(in, 16);
+		out1 = _mm_unpackhi_epi16(in, sign);
+		out2 = _mm_cvtepi16_epi32(in);
+	}
+	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
+	ALWAYS_INLINE void _mm_widen_epu16_11(const __m128i in, __m128i& out1, __m128i& out2) {
+		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
+		out2 = _mm_cvtepu16_epi32(in);
+	}
+#endif
 	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8] using saturation
 	ALWAYS_INLINE __m128i _mm_compress_epi32_10(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packs_epi32(in_lo, in_hi);
@@ -32,6 +45,7 @@ namespace impl {
 	ALWAYS_INLINE __m128i _mm_compress_epu32_10(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packus_epi32(in_lo, in_hi);
 	}
+
 	
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2) 
 	ALWAYS_INLINE void _mm_widen_epi16_20(const __m128i in, __m128i& out1, __m128i& out2) {
