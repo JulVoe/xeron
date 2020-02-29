@@ -12,27 +12,31 @@ enum { SMALL = 0, BIG = 1 }; //BIG=input can be as big as possible, SMALL=input 
 	
 namespace impl {
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
-	ALWAYS_INLINE void _mm_widen_epi16_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
+	ALWAYS_INLINE void _mm_cvt_i16x8_i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		const __m128i sign = _mm_srai_epi16(in, 16);
 		out1 = _mm_unpackhi_epi16(in, sign);
 		out2 = _mm_unpacklo_epi16(in, sign);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	ALWAYS_INLINE void _mm_widen_epu16_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
+	ALWAYS_INLINE void _mm_cvt_u16x8_u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
 		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
 	}
 #if SSE >= 41
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
-	ALWAYS_INLINE void _mm_widen_epi16_11(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
+	ALWAYS_INLINE void _mm_cvt_i16x8_i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		const __m128i sign = _mm_srai_epi16(in, 16);
 		out1 = _mm_unpackhi_epi16(in, sign);
 		out2 = _mm_cvtepi16_epi32(in);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	ALWAYS_INLINE void _mm_widen_epu16_11(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
+	ALWAYS_INLINE void _mm_cvt_u16x8_u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
-		out2 = _mm_cvtepu16_epi32(in);
+		out2 = _mm_cvtepu16_epi32(in, _mm_setzero_si128());
 	}
 #endif
 	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8] using saturation
