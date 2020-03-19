@@ -11,59 +11,62 @@ enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possib
 enum { SMALL = 0, BIG = 1 }; //BIG=input can be as big as possible, SMALL=input has to be <=2^24
 	
 namespace impl {
+#if SSE >= 41
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
 	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_i16x8_i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+		const __m128i sign = _mm_srai_epi16(in, 16);
+		out2 = _mm_cvtepi16_epi32(in);
+		out1 = _mm_unpackhi_epi16(in, sign);
+	}
+	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
+	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
+	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
+		out2 = _mm_cvtepu16_epi32(in);
+	}
+#else
+	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
+	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
+	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		const __m128i sign = _mm_srai_epi16(in, 16);
 		out1 = _mm_unpackhi_epi16(in, sign);
 		out2 = _mm_unpacklo_epi16(in, sign);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
 	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_u16x8_u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
 		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
 	}
-#if SSE >= 41
-	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
-	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_i16x8_i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
-		const __m128i sign = _mm_srai_epi16(in, 16);
-		out1 = _mm_unpackhi_epi16(in, sign);
-		out2 = _mm_cvtepi16_epi32(in);
-	}
-	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_u16x8_u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
-		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
-		out2 = _mm_cvtepu16_epi32(in, _mm_setzero_si128());
-	}
 #endif
-	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8] using saturation
-	ALWAYS_INLINE __m128i _mm_compress_epi32_10(const __m128i in_lo, const __m128i in_hi) {
+	//Converts two int32_t[8] (in_lo, in_hi) to int16_t[8] using saturation
+	ALWAYS_INLINE __m128i _mm_cvt_2i32x4_i16x8_10(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packs_epi32(in_lo, in_hi);
 	}
-	//Converts two int32_t[4] (in_lo, in_hi) to uint16_t[8] using saturation
+	//Converts two int32_t[8] (in_lo, in_hi) to uint16_t[8] using saturation
 	//Note: also converts 2xuint32_t[4] to uint16_t[8] correct, if highest bit of elements isn't set
 	//	If that happens, output will be zero and not uint16_t::max()
-	ALWAYS_INLINE __m128i _mm_compress_epu32_10(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_cvt_2u32x4_u16x8_10(const __m128i in_lo, const __m128i in_hi) {
 		return _mm_packus_epi32(in_lo, in_hi);
 	}
-
+	
 	
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2) 
-	ALWAYS_INLINE void _mm_widen_epi16_20(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Partition: in = |out2|out1|out2|out1|out2|out1|out2|out1|
+	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_20(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_srai_epi32(in, 16);
 		const __m128i out2_tmp = _mm_slli_epi32(in, 16);
 		out2 = _mm_srai_epi32(out2_tmp, 16);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	ALWAYS_INLINE void _mm_widen_epu16_20(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Partition: in = |out2|out1|out2|out1|out2|out1|out2|out1|
+	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_20(const __m128i in, __m128i& out1, __m128i& out2) {
 		out1 = _mm_srli_epi32(in, 16);
 		out2 = _mm_and_si128(in, _mm_set1_epi32(0xFF));
 	}
 	//Converts two [u]int32_t[4] (in_lo, in_hi) to [u]int16_t[8] using truncation.
-	ALWAYS_INLINE __m128i _mm_compress_epi32_20(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_cvt_2i32x4_i16x8_20(const __m128i in_lo, const __m128i in_hi) {
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 #if SSE >= 41
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
@@ -73,9 +76,12 @@ namespace impl {
 		return _mm_or_si128(hi_epi32_shift, lo_epi32_mask);
 #endif
 	}
+	ALWAYS_INLINE __m128i _mm_cvt_2u32x4_u16x8_20(const __m128i in_lo, const __m128i in_hi){
+		return _mm_cvt_2i32x4_i16x8_20(in_lo, in_hi);
+	}
 	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8]
 	//If SSE4.1 is available, truncation is used, otherwiese saturation. 
-	ALWAYS_INLINE __m128i _mm_compress_epi32_21(const __m128i in_lo, const __m128i in_hi) {
+	ALWAYS_INLINE __m128i _mm_cvt_2i32x4_i16x8_21(const __m128i in_lo, const __m128i in_hi) {
 #if SSE >= 41
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
@@ -85,25 +91,25 @@ namespace impl {
 	}
 	//Converts two uint32_t[4] (in_lo, in_hi) to uint16_t[8]
 	//If SSE4.1 is available, truncation is used, otherwiese saturation.
-	//Note: If SSE4.1 is not available, no highest bit of the input should be set or the output will be 0 (see _mm_compress_epu32_10)
-	ALWAYS_INLINE __m128i _mm_compress_epu32_21(const __m128i in_lo, const __m128i in_hi) {
+	//Note: If SSE4.1 is not available, no highest bit of the input should be set or the output will be 0 (see _mm_cvt_2u32x4_u16x8_10)
+	ALWAYS_INLINE __m128i _mm_cvt_2u32x4_u16x8_21(const __m128i in_lo, const __m128i in_hi) {
 #if SSE >= 41
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
 #else
-	    return _mm_shuffle_epi8(_mm_compress_epu32_10(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
+	    return _mm_shuffle_epi8(_mm_cvt_2u32x4_u16x8_10(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
 #endif
 	}
 	
 	//Converts int32_t[8] to int16_t[8] using saturation
-	ALWAYS_INLINE __m128i _mm256_compress_epi32(__m256i in){
-		_mm_compress_epi32_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
+	ALWAYS_INLINE __m128i _mm256_cvt_i32x8_i16x8_10(__m256i in){
+		_mm_cvt_i16x8_2i32x4_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
 	//Converts uint32_t[8] (in) to uint16_t[8] using saturation
 	//Note: If the highest bit of on element of in is set, the corresponding returned element will be 0
-	//	(see _mm_compress_epi32_10)
-	ALWAYS_INLINE __m128i _mm256_compress_epu32(__m256i in){
-		_mm_compress_epi32_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
+	//	(see _mm_cvt_u16x8_2u32x4_10)
+	ALWAYS_INLINE __m128i _mm256_cvt_u32x8_u16x8_10(__m256i in){
+		_mm_cvt_u16x8_2u32x4_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
 
 
@@ -111,14 +117,13 @@ namespace impl {
 	//Approximates the inverse of float[4] (in) using intrinsic and n passes of newton iterations
 	template<unsigned n>
 	ALWAYS_INLINE __m128 _mm_rcp_ps(const __m128 in) {
-		const __m128  two = _mm_set1_ps(2.00000051757f);
+		const __m128  two = _mm_set1_ps(2.0f);//2.00000051757f
 		__m128 ret = _mm_rcp_ps(in);
 
 		for (unsigned i = 0; i < n; i++) {
 #if FMA
 			const __m128 ret_mult = _mm_fnmadd_ps(in, ret, two);
 #else
-			const __m128i lo_mask = _mm_set1_epi32(0xFFFF);
 			const __m128 ret_mult_tmp = _mm_mul_ps(in, ret);
 			const __m128 ret_mult = _mm_sub_ps(two, ret_mult_tmp);
 #endif
