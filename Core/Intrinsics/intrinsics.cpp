@@ -116,9 +116,24 @@ namespace impl {
 		return _mm256_cvtepi16_epi32(in);
 	}
 	//Converts uint16_t[8] to uint32_t[8]
+	//Note: A 16-bit shuffle on the ymm registers of "in" would work as well
 	ALWAYS_INLINE __m256i _mm256_cvt_u16x8_u32x8_10(__m128i in){
 		return _mm256_cvtepu16_epi32(in);
 	}
+#if 0
+	//Gets the ymm Register of a xmm-Registers. Does not compile for some reason...
+	__m256i get_ymm_of_xmm(__m128i in){
+    		__m256i out;
+    		__asm__ (
+        		"vmovaps   %[in], %%xmm0\n\t"
+        		"vmovdqa64 %%ymm0, %[out]"
+        		: [out] "=r" ( out )
+        		: [in] "r" ( in ) 
+        		: "%xmm0", "%ymm0"
+    		);
+    		return out;
+	}
+#endif
 
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
 	//Approximates the inverse of float[4] (in) using intrinsic and n passes of newton iterations
