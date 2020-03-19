@@ -111,7 +111,14 @@ namespace impl {
 	ALWAYS_INLINE __m128i _mm256_cvt_u32x8_u16x8_10(__m256i in){
 		_mm_cvt_u16x8_2u32x4_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
-
+	//Converts int16_t[8] to int32_t[8]
+	ALWAYS_INLINE __m256i _mm256_cvt_i16x8_i32x8_10(__m128i in){
+		return _mm256_cvtepi16_epi32(in);
+	}
+	//Converts uint16_t[8] to uint32_t[8]
+	ALWAYS_INLINE __m256i _mm256_cvt_u16x8_u32x8_10(__m128i in){
+		return _mm256_cvtepu16_epi32(in);
+	}
 
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
 	//Approximates the inverse of float[4] (in) using intrinsic and n passes of newton iterations
@@ -1274,11 +1281,11 @@ public:
 
 
 
-/****************************************************
- *                     Makros                       *
- * - _mm_widen_ep[i,u]16 and _mm_compress_ep[i,u]32 * _10, _20, _21 | speed (benchmark together, roundtrip)
- * - _mm_div_ep[i,u]16_fast                         * _div, _rcp    | speed
- * - _mm_idiv_epi32_precise_int                     * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support&speed (<PRECISE, __m128i>)
- * - _mm_idiv_epi32_precise_float                   * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support&speed (<PRECISE, __m128>)
- * - __RCP                                          * 0 to 3, for _mm_idiv_ep[i,u]32_split
- ****************************************************/
+/*************************************************************************
+ *                     Makros                                            *
+ * - _mm_cvt_[i,u]16x8_2[i,u]32x4_10 and _mm_cvt_[i,u]32x4_2[i,u]16x8_10 * _10, _20, _21 | SSE4.1-support & speed (benchmark together, roundtrip)
+ * - _mm_div_ep[i,u]16_fast                                              * _div, _rcp    | speed
+ * - _mm_idiv_epi32_precise_int                                          * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128i>)
+ * - _mm_idiv_epi32_precise_float                                        * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128>)
+ * - __RCP                                                               * 0 to 3, for _mm_idiv_ep[i,u]32_split
+ *************************************************************************/
