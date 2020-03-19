@@ -209,7 +209,7 @@ namespace impl {
 			c_epi32 = _mm256_cvtps_epi32(c_float);
 
 		//6.: Convert back to epi16
-		return _mm256_compress_epi32(c_epi32);
+		return _mm256_cvt_i32x8_i16x8(c_epi32);
 
 #else		
 		//1.: Convert to epi32
@@ -217,8 +217,8 @@ namespace impl {
 		__m128i a_lo_epi32;
 		__m128i b_hi_epi32;
 		__m128i b_lo_epi32;
-		_mm_widen_epi16(a_epi16, a_hi_epi32, a_lo_epi32);
-		_mm_widen_epi16(b_epi16, b_hi_epi32, b_lo_epi32);
+		_mm_cvt_i16x8_2i32x4(a_epi16, a_hi_epi32, a_lo_epi32);
+		_mm_cvt_i16x8_2i32x4(b_epi16, b_hi_epi32, b_lo_epi32);
 
 		//2.: Convert to float
 		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
@@ -251,7 +251,7 @@ namespace impl {
 		}
 
 		//6.: Convert back to epi16
-		return _mm_compress_epi32(lo_epi32, hi_epi32);
+		return _mm_cvt_2i32x4_i16x8(lo_epi32, hi_epi32);
 #endif
 	}
 	//Divides a_epi16 by b_epi16 elementwise
@@ -280,15 +280,15 @@ namespace impl {
 			c_epi32 = _mm256_cvtps_epi32(c_float);
 
 		//5.: Convert back to epi16
-		return _mm256_compress_epi32(c_epi32);
+		return _mm256_cvt_i32x8_i16x8(c_epi32);
 #else		
 		//1.: Convert to epi32
 		__m128i a_hi_epi32;
 		__m128i a_lo_epi32;
 		__m128i b_hi_epi32;
 		__m128i b_lo_epi32;
-		_mm_widen_epi16(a_epi16, a_hi_epi32, a_lo_epi32);
-		_mm_widen_epi16(b_epi16, b_hi_epi32, b_lo_epi32);
+		_mm_cvt_i16x8_2i32x4(a_epi16, a_hi_epi32, a_lo_epi32);
+		_mm_cvt_i16x8_2i32x4(b_epi16, b_hi_epi32, b_lo_epi32);
 
 		//2.: Convert to float
 		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
@@ -311,7 +311,7 @@ namespace impl {
 		}
 
 		//5.: Convert back to epi16
-		return _mm_compress_epi32(lo_epi32, hi_epi32);
+		return _mm_cvt_2i32x4_i16x8(lo_epi32, hi_epi32);
 #endif
 	}
 	//Divides a_epu16 by b_epu16 elementwise
@@ -347,16 +347,15 @@ namespace impl {
 			c_epi32 = _mm256_cvtps_epi32(c_float);
 
 		//6.: Convert back to epu16
-		return _mm256_compress_epu32(c_epi32);
-
+		return _mm256_cvt_u32x8_u16x8(c_epi32);
 #else		
 		//1.: Convert to epi32
 		__m128i a_hi_epi32;
 		__m128i a_lo_epi32;
 		__m128i b_hi_epi32;
 		__m128i b_lo_epi32;
-		_mm_widen_epu16(a_epu16, a_hi_epi32, a_lo_epi32);
-		_mm_widen_epu16(b_epu16, b_hi_epi32, b_lo_epi32);
+		_mm_cvt_u16x8_2u32x4(a_epu16, a_hi_epi32, a_lo_epi32);
+		_mm_cvt_u16x8_2u32x4(b_epu16, b_hi_epi32, b_lo_epi32);
 
 		//2.: Convert to float
 		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
@@ -389,7 +388,7 @@ namespace impl {
 		}
 
 		//6.: Convert back to epu16
-		return _mm_compress_epu32(lo_epi32, hi_epi32);
+		return _mm_cvt_2u32x4_u16x8(lo_epi32, hi_epi32);
 #endif
 	}
 	//Divides a_epu16 by b_epu16 elementwise
@@ -418,16 +417,15 @@ namespace impl {
 			c_epi32 = _mm256_cvtps_epi32(c_float);
 
 		//5.: Convert back to epu16
-		return _mm256_compress_epu32(c_epi32);
-
+		return _mm256_cvt_u32x8_u16x8(c_epi32);
 #else		
 		//1.: Convert to epi32
 		__m128i a_hi_epi32;
 		__m128i a_lo_epi32;
 		__m128i b_hi_epi32;
 		__m128i b_lo_epi32;
-		_mm_widen_epu16(a_epu16, a_hi_epi32, a_lo_epi32);
-		_mm_widen_epu16(b_epu16, b_hi_epi32, b_lo_epi32);
+		_mm_cvt_u16x8_2u32x4(a_epu16, a_hi_epi32, a_lo_epi32);
+		_mm_cvt_u16x8_2u32x4(b_epu16, b_hi_epi32, b_lo_epi32);
 
 		//2.: Convert to float
 		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
@@ -450,7 +448,7 @@ namespace impl {
 		}
 
 		//5.: Convert back to epu16
-		return _mm_compress_epu32(lo_epi32, hi_epi32);
+		return _mm_cvt_2u32x4_u16x8(lo_epi32, hi_epi32);
 #endif
 	}
 //--------------------------------------_mm_div_epi32--------------------------------------//
