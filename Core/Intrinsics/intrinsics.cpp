@@ -176,9 +176,9 @@ namespace impl {
 	 * https://stackoverflow.com/questions/41228180/how-can-i-convert-a-vector-of-float-to-short-int-using-avx-instructions
 	 * https://stackoverflow.com/questions/16822757/sse-integer-division
 	*/
-	//Divides a_epi16 by b_epi16 elementwise
+	//Divides a_epi16 by b_epi16 elementwise. If AVX2 is available, it can also return the result as floats.
 	//Note: Correctness has to be verified
-	template<int round>
+	template<int round, typename T=__m128i>
 	ALWAYS_INLINE __m128i _mm_div_epi16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) {
 		//0.: Are the template parameters valid?
 		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epi16_rcp has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
@@ -200,6 +200,9 @@ namespace impl {
 
 		//4.: Divide
 		const __m256 c_float = _mm256_mul_ps(a_float, b_rcp);
+		
+		if constexpr(typeid(T)==typeid(__m256))
+			return c_float;
 
 		//5.: Convert back to epi32
 		__m256i c_epi32;
@@ -254,9 +257,9 @@ namespace impl {
 		return _mm_cvt_2i32x4_i16x8(lo_epi32, hi_epi32);
 #endif
 	}
-	//Divides a_epi16 by b_epi16 elementwise
+	//Divides a_epi16 by b_epi16 elementwise. If AVX2 is available, it can also return the result as floats.
 	//Note: Result will always be correct
-	template<int round>
+	template<int round, typename T=__m128i>
 	ALWAYS_INLINE __m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) { 
 		//0.: Are the template parameters valid?
 		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epi16_div has to be either TRUNCATE(1) or PRECISE(2)!");
@@ -272,6 +275,9 @@ namespace impl {
 		//3.: Divide
 		const __m256 c_float = _mm256_div_ps(a_float, b_float);
 
+		if constexpr(typeid(T)==typeid(__m256))
+			return c_float;
+	
 		//4.: Convert back to epi32
 		__m256i c_epi32;
 		if constexpr(round==TRUNCATE)
@@ -314,9 +320,9 @@ namespace impl {
 		return _mm_cvt_2i32x4_i16x8(lo_epi32, hi_epi32);
 #endif
 	}
-	//Divides a_epu16 by b_epu16 elementwise
+	//Divides a_epu16 by b_epu16 elementwise. If AVX2 is available, it can also return the result as floats.
 	//Note: Correctness has to be verified
-	template<int round>
+	template<int round, typename T=__m128i>
 	ALWAYS_INLINE __m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { 
 		//0.: Are the template parameters valid?
 		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epu16_rcp has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
@@ -338,6 +344,9 @@ namespace impl {
 
 		//4.: Divide
 		const __m256 c_float = _mm256_mul_ps(a_float, b_rcp);
+		
+		if constexpr(typeid(T)==typeid(__m256))
+			return c_float;
 
 		//5.: Convert back to epi32
 		__m256i c_epi32;
@@ -391,9 +400,9 @@ namespace impl {
 		return _mm_cvt_2u32x4_u16x8(lo_epi32, hi_epi32);
 #endif
 	}
-	//Divides a_epu16 by b_epu16 elementwise
+	//Divides a_epu16 by b_epu16 elementwise. If AVX2 is available, it can also return the result as floats.
 	//Note: Will always be correct
-	template<int round>
+	template<int round, typename T=__m128i>
 	ALWAYS_INLINE __m128i _mm_div_epu16_div(const __m128i &a_epu16, const __m128i &b_epu16) {
 		//0.: Are the template parameters valid?
 		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epu16_div has to be either TRUNCATE(1) or PRECISE(2)!");
@@ -409,6 +418,9 @@ namespace impl {
 		//3.: Divide
 		const __m256 c_float = _mm256_div_ps(a_float, b_float);
 
+		if constexpr(typeid(T)==typeid(__m256))
+			return c_float;
+		
 		//4.: Convert back to epi32
 		__m256i c_epi32;
 		if constexpr(round==TRUNCATE)
@@ -551,45 +563,25 @@ namespace impl {
 		const __m128 fb = _mm_cvtepi32_ps(b);//If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
 
 		__m128 fr;
-		if constexpr(fast){
-			if constexpr(rcp==0){
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==1){
-				const __m128 rcp = _mm_rcp_ps<0>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==2){
-				const __m128 rcp = _mm_rcp_ps<0>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==3){
-				const __m128 rcp = _mm_rcp_ps<0>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else {
-				UNREACHABLE();
-			}
+		if constexpr(rcp==0){
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+		} else if constexpr(rcp==1){
+			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+		} else if constexpr(rcp==2){
+			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+		} else if constexpr(rcp==3){
+			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else {
-			if constexpr(rcp==0){
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==1){
-				const __m128 rcp = _mm_rcp_ps<1>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==2){
-				const __m128 rcp = _mm_rcp_ps<1>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==3){
-				const __m128 rcp = _mm_rcp_ps<1>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else {
-				UNREACHABLE();
-			}
+			UNREACHABLE();
 		}
+		
 
 		//Return in the right form
 		if constexpr (typeid(T) == typeid(__m128i)) {
@@ -621,44 +613,23 @@ namespace impl {
 		const __m128 fb = _mm_cvtepi32_ps(b);//If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
 
 		__m128 fr;
-		if constexpr(fast){
-			if constexpr(rcp==0){
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==1){
-				const __m128 rcp = _mm_rcp_ps<0>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==2){
-				const __m128 rcp = _mm_rcp_ps<0>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==3){
-				const __m128 rcp = _mm_rcp_ps<0>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else {
-				UNREACHABLE();
-			}
+		if constexpr(rcp==0){
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+		} else if constexpr(rcp==1){
+			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+		} else if constexpr(rcp==2){
+			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+		} else if constexpr(rcp==3){
+			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else {
-			if constexpr(rcp==0){
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==1){
-				const __m128 rcp = _mm_rcp_ps<1>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==2){
-				const __m128 rcp = _mm_rcp_ps<1>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else if constexpr(rcp==3){
-				const __m128 rcp = _mm_rcp_ps<1>(fb);
-				const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-				fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
-			} else {
-				UNREACHABLE();
-			}
+			UNREACHABLE();
 		}
 
 		//Return in the right form
@@ -688,25 +659,37 @@ namespace impl {
 	template<int precision = PRECISE, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi16(__m128i a, __m128i b) {
 		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epi16 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
-		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi16 can only return either __m128i or __m128!");
+#if AVX>=2 //Otherwise, two __m128 have to be returned wich would not work with this signature		
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m256), "_mm_idiv_epi16 can only return either __m128i or __m256!");
+#else
+		static_assert(typeid(T) == typeid(__m128i), "_mm_idiv_epi16 can only return __m128i, when AVX2 is not available.");
+#endif
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast<PRECISE , __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_rcp <FAST    , __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast<TRUNCATE, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi16<PRECISE , __m128 >(__m128i a, __m128i b) { return _mm_div_epi16_fast<PRECISE , __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi16<FAST    , __m128 >(__m128i a, __m128i b) { return _mm_div_epi16_rcp <FAST    , __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi16<TRUNCATE, __m128 >(__m128i a, __m128i b) { return _mm_div_epi16_fast<TRUNCATE, __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_div         <PRECISE , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast        <FAST    , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast_correct<TRUNCATE, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_div         <PRECISE , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<FAST    , __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_fast        <FAST    , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_fast_correct<TRUNCATE, __m256 >(a, b); }
 	
 	//Vector-equivalent of "return (T)a/(T)b;"
-	template<int precision = PRECISE>
+	template<int precision = PRECISE, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epu16(__m128i a, __m128i b) {
 		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epu16 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
+#if AVX>=2 //Otherwise, two __m128 have to be returned wich would not work with this signature		
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m256), "_mm_idiv_epu16 can only return either __m128i or __m256!");
+#else
+		static_assert(typeid(T) == typeid(__m128i), "_mm_idiv_epu16 can only return __m128i, when AVX2 is not available.");
+#endif
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<PRECISE >(__m128i a, __m128i b) { return _mm_div_epu16_fast<PRECISE >(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<FAST    >(__m128i a, __m128i b) { return _mm_div_epu16_rcp <FAST    >(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<TRUNCATE>(__m128i a, __m128i b) { return _mm_div_epu16_fast<TRUNCATE>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_div         <PRECISE , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_fast        <FAST    , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_fast_correct<TRUNCATE, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_div         <PRECISE , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<FAST    , __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_fast        <FAST    , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_fast_correct<TRUNCATE, __m256 >(a, b); }
 
 	//Vector-equivalent of "return (T)a/(T)b;"
 	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
@@ -1296,13 +1279,12 @@ public:
 //https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
 
 
-
-
 /*************************************************************************
  *                     Makros                                            *
  * - _mm_cvt_[i,u]16x8_2[i,u]32x4_10 and _mm_cvt_[i,u]32x4_2[i,u]16x8_10 * _10, _20, _21 | SSE4.1-support & speed (benchmark together, roundtrip)
  * - _mm_div_ep[i,u]16_fast                                              * _div, _rcp    | speed
+ * - _mm_div_ep[i,u]16_fast_correct                                      * _div, _rcp    | Correctness & speed
  * - _mm_idiv_epi32_precise_int                                          * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128i>)
  * - _mm_idiv_epi32_precise_float                                        * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128>)
- * - __RCP                                                               * 0 to 3, for _mm_idiv_ep[i,u]32_split
+ * - __RCP                                                               * 0 to 3, for _mm_idiv_ep[i,u]32_split | Correctness & speed
  *************************************************************************/
