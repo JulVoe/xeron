@@ -170,7 +170,7 @@ namespace impl {
 		}
 		return ret;
 	}
-//--------------------------------------_mm_div_ep[i,u]32--------------------------------------//
+//--------------------------------------_mm_div_ep[i,u]16--------------------------------------//
 	/* https://stackoverflow.com/questions/50597764/convert-signed-short-to-float-in-c-simd
 	 * https://stackoverflow.com/questions/9161807/sse-convert-short-integer-to-float
 	 * https://stackoverflow.com/questions/41228180/how-can-i-convert-a-vector-of-float-to-short-int-using-avx-instructions
@@ -685,14 +685,18 @@ namespace impl {
 	}
 	
 	//Vector-equivalent of "return (T)a/(T)b;"
-	template<int precision = PRECISE>
+	template<int precision = PRECISE, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi16(__m128i a, __m128i b) {
 		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epi16 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
+		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi16 can only return either __m128i or __m128!");
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE >(__m128i a, __m128i b) { return _mm_div_epi16_fast<PRECISE >(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<FAST    >(__m128i a, __m128i b) { return _mm_div_epi16_rcp <FAST    >(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<TRUNCATE>(__m128i a, __m128i b) { return _mm_div_epi16_fast<TRUNCATE>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast<PRECISE , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_rcp <FAST    , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast<TRUNCATE, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi16<PRECISE , __m128 >(__m128i a, __m128i b) { return _mm_div_epi16_fast<PRECISE , __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi16<FAST    , __m128 >(__m128i a, __m128i b) { return _mm_div_epi16_rcp <FAST    , __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi16<TRUNCATE, __m128 >(__m128i a, __m128i b) { return _mm_div_epi16_fast<TRUNCATE, __m128 >(a, b); }
 	
 	//Vector-equivalent of "return (T)a/(T)b;"
 	template<int precision = PRECISE>
