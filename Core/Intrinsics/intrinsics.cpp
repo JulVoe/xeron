@@ -524,7 +524,7 @@ namespace impl {
 #endif
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_impl<PRECISE , false  , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_impl<PRECISE , USE_RCP, __m128i>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_impl<FAST    , true   , __m128i>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_impl<TRUNCATE, USE_RCP, __m128i>(a, b); }
 	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_impl<PRECISE , false  , __m256 >(a, b); }
@@ -542,7 +542,7 @@ namespace impl {
 #endif
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_impl<PRECISE , false  , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_impl<PRECISE , USE_RCP, __m128i>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_impl<FAST    , true   , __m128i>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_impl<TRUNCATE, USE_RCP, __m128i>(a, b); }
 	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_impl<PRECISE , false  , __m256 >(a, b); }
@@ -557,18 +557,18 @@ namespace impl {
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32 can only return either __m128i or __m128!");
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <PRECISE,  __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE,  __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <TRUNCATE, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<PRECISE,  __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE,  __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small_rcp    <PRECISE,  __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<TRUNCATE, __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <PRECISE ,         __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE ,  0    , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <TRUNCATE,         __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __RCPt, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<PRECISE ,         __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE , 0     , __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<TRUNCATE,         __m128 >(a, b); }
+	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __RCPt, __m128 >(a, b); }
 	
 	//Vector-equivalent of "return (T)a/(T)b;"
 	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
@@ -1132,7 +1132,9 @@ public:
 #endif
 }
 }
-#undef __RCP
+#undef USE_RCP
+#undef __RCPf
+#undef __RCPt
 
 //https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
 
@@ -1141,7 +1143,7 @@ public:
  *                     Makros                                            *
  * - _mm_cvt_[i,u]16x8_2[i,u]32x4_10 and _mm_cvt_[i,u]32x4_2[i,u]16x8_10 * _10, _20, _21 | SSE4.1-support & speed (benchmark together, roundtrip)
  * - USE_RCP                                                             * true, false for _mm_div_epi16_impl | Has to be correct & speed
- * - _mm_idiv_epi32_precise_int                                          * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128i>)
- * - _mm_idiv_epi32_precise_float                                        * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128>)
- * - __RCP                                                               * 0 to 3, for _mm_idiv_ep[i,u]32_split | Correctness & speed
+ * - _mm_idiv_epi32_precise_int                                          * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & correct & speed (<PRECISE, __m128i>)
+ * - _mm_idiv_epi32_precise_float                                        * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & correct & speed (<PRECISE, __m128>)
+ * - __RCPf, __RCPt                                                      * 0 to 3, for _mm_idiv_ep[i,u]32_split | speed. Correctness & speed
  *************************************************************************/
