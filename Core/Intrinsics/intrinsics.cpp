@@ -183,7 +183,7 @@ namespace impl {
 	ALWAYS_INLINE __m128i _mm_div_epi16_impl(const __m128i &a_epi16, const __m128i &b_epi16) {
 		//0.: Are the template parameters valid?
 		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epi16_rcp has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
-		static_assert(!(use_rcp && PRECISE), "If you want a precise division, don't use reciprocals!");
+		static_assert(!(use_rcp && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
@@ -193,20 +193,12 @@ namespace impl {
 		const __m256 a_float = _mm256_cvtepi32_ps(a);
 		const __m256 b_float = _mm256_cvtepi32_ps(b);
 
-		//3.: Actual computation
+		//3.: Perform the actual computation
 		__m256 c_float;
 		if constexpr(use_rcp){
-			//3.1.: Calculate reciprocal             (b_rcp = 1/b_float)
-			__m256 b_rcp;
-			if constexpr(round==FAST)
-				b_rcp = _mm256_rcp_ps<0>(b_float);
-			else
-				b_rcp = _mm256_rcp_ps<1>(b_float);
-
-			//3.2.: Divide
+			const __m256 b_rcp = _mm256_rcp_ps<1>(b_float); //Calculate reciprocal (b_rcp = 1/b_float)
 			c_float = _mm256_mul_ps(a_float, b_rcp);
 		} else {
-			//3.: Divide
 			c_float = _mm256_div_ps(a_float, b_float);
 		}
 		
@@ -238,24 +230,15 @@ namespace impl {
 		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
 		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
 
-		//3.: Actual computation
+		//3.: Perform the actual computation
 		__m128 hi, lo;
 		if constexpr(use_rcp){
-			//3.1: Calculate reciprocal
-			__m128 b_hi_rcp, b_lo_rcp;
-			if constexpr(round==FAST){
-				b_hi_rcp = _mm_rcp_ps<0>(b_hi);
-				b_lo_rcp = _mm_rcp_ps<0>(b_lo);
-			} else {
-				b_hi_rcp = _mm_rcp_ps<1>(b_hi);
-				b_lo_rcp = _mm_rcp_ps<1>(b_lo);
-			}
+			const __m128 b_hi_rcp = _mm_rcp_ps<round!=FAST>(b_hi); //Calculate reciprocal (b_hi_rcp = 1/b_hi)
+			const __m128 b_lo_rcp = _mm_rcp_ps<round!=FAST>(b_lo); //Calculate reciprocal (b_lo_rcp = 1/b_lo)
 
-			//3.2.: Divide
 			hi = _mm_mul_ps(a_hi, b_hi_rcp);
 			lo = _mm_mul_ps(a_lo, b_lo_rcp);
 		} else {
-			//3.: Divide
 			hi = _mm_div_ps(a_hi, b_hi);
 			lo = _mm_div_ps(a_lo, b_lo);
 		}
@@ -281,7 +264,7 @@ namespace impl {
 	ALWAYS_INLINE __m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { 
 		//0.: Are the template parameters valid?
 		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epu16_rcp has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
-		static_assert(!(use_rcp && PRECISE), "If you want a precise division, don't use reciprocals!");
+		static_assert(!(use_rcp && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
@@ -294,17 +277,9 @@ namespace impl {
 		//3.: Perform the actual computation
 		__m256 c_float;
 		if constexpr(use_rcp){
-			//3.1: Calculate reciprocal             (b_rcp = 1/b_float)
-			__m256 b_rcp; 
-			if constexpr(round==FAST)
-				b_rcp = _mm256_rcp_ps<0>(b_float);
-			else
-				b_rcp = _mm256_rcp_ps<1>(b_float);
-
-			//3.2.: Divide
+			const __m256 b_rcp = _mm256_rcp_ps<round!=FAST>(b_float); //Calculate reciprocal(b_rcp = 1/b_float)
 			c_float = _mm256_mul_ps(a_float, b_rcp);
 		} else {
-			//3.: Divide
 			c_float = _mm256_div_ps(a_float, b_float);
 		}
 		
@@ -335,24 +310,15 @@ namespace impl {
 		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
 		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
 
-		//Perform the actual computation
+		//3.: Perform the actual computation
 		__m128 hi, lo;
 		if constexpr(use_rcp){
-			//3.1.: Calculate reciprocal
-			__m128 b_hi_rcp, b_lo_rcp;
-			if constexpr(round==FAST){
-				b_hi_rcp = _mm_rcp_ps<0>(b_hi);
-				b_lo_rcp = _mm_rcp_ps<0>(b_lo);
-			} else {
-				b_hi_rcp = _mm_rcp_ps<1>(b_hi);
-				b_lo_rcp = _mm_rcp_ps<1>(b_lo);
-			}
+			const __m128 b_hi_rcp = _mm_rcp_ps<round!=FAST>(b_hi); //Calculate reciprocal (b_hi_rcp = 1/b_hi)
+			const __m128 b_lo_rcp = _mm_rcp_ps<round!=FAST>(b_lo); //Calculate reciprocal (b_lo_rcp = 1/b_lo)
 
-			//3.2.: Divide
 			const __m128 hi = _mm_mul_ps(a_hi, b_hi_rcp);
 			const __m128 lo = _mm_mul_ps(a_lo, b_lo_rcp);
 		} else {
-			//3.: Divide
 			const __m128 hi = _mm_div_ps(a_hi, b_hi);
 			const __m128 lo = _mm_div_ps(a_lo, b_lo);
 		}
@@ -373,53 +339,34 @@ namespace impl {
 	}
 //--------------------------------------_mm_div_epi32--------------------------------------//
 	//Divides a by b elementwise.
-	//_mm_idiv_epi32_split with the extra assumption that a<=2^24. Very fast. Precise für a<=2^24. From there on inprecise for small b.
-	template<int round, typename T=__m128i>
+	//_mm_idiv_epi32_split with the extra assumption that a<=2^24. If use_rcp is true, it uses _mm_rcp_ps with multiplication instead of division
+	//Note: Very fast. Precise for a<=2^24, if !(round==FAST&&use_rcp). From there on inprecise for small b.
+	//Note: FAST only differs from the other modes, if use_rcp is true.
+	//Note: If use_rcp is true, the correctness of the result has to be verified.
+	template<int round, bool use_rcp, typename T=__m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_small(__m128i a, __m128i b) {
-		//Are the template parameters valid?
-		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_small has to be either TRUNCATE(1) or PRECISE(2)!");
+		//0.: Are the template parameters valid?
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_small has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		static_assert(!(use_rcp && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_small can only return either __m128i or __m128!");
 
-		//Computation
+		//1.: Computation
 		const __m128 fa = _mm_cvtepi32_ps(a);
 		const __m128 fb = _mm_cvtepi32_ps(b);
-		const __m128 fr = _mm_div_ps(fa, fb);
+		__m128 fr;
+		if constexpr(use_rcp){
+			const __m128 rcp = _mm_rcp_ps<round!=FAST>(fb);
+			const __m128 fr = _mm_mul_ps(fa, rcp);
+		} else {
+			fr = _mm_div_ps(fa, fb);
+		}
 
-		//Return in the right form
+		//2.: Return in the right form
 		if constexpr (typeid(T) == typeid(__m128i)) {
-			if constexpr (round == PRECISE)
-				return _mm_cvtps_epi32(fr);
-			else if constexpr (round == TRUNCATE)
+			if constexpr (round == TRUNCATE)
 				return _mm_cvttps_epi32(fr);
-		}
-		else if constexpr (typeid(T) == typeid(__m128)) {
-			return fr;
-		}
-		else {
-			UNREACHABLE();
-		}
-	}
-	//Divides a by b elementwise.
-	//Very fast. Precise für a<=2^24. From there on inprecise for small b. Uses _mm_rcp_ps with multiplication instead of division
-	template<int round, typename T = __m128i>
-	ALWAYS_INLINE __m128i _mm_idiv_epi32_small_rcp(__m128i a, __m128i b) {
-		//Are the template parameters valid?
-		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_small_rcp has to be either TRUNCATE(1) or PRECISE(2)!");
-		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_small_rcp can only return either __m128i or __m128!");
-
-		//Computation
-		const __m128 fa = _mm_cvtepi32_ps(a);
-		const __m128 fb = _mm_cvtepi32_ps(b);
-
-		const __m128 rcp = _mm_rcp_ps<0>(fb);
-		const __m128 fr = _mm_mul_ps(fa, rcp);
-
-		//Return in the right form
-		if constexpr (typeid(T) == typeid(__m128i)) {
-			if constexpr (round == PRECISE)
+			else
 				return _mm_cvtps_epi32(fr);
-			else if constexpr (round == TRUNCATE)
-				return _mm_cvttps_epi32(fr);
 		}
 		else if constexpr (typeid(T) == typeid(__m128)) {
 			return fr;
@@ -432,16 +379,16 @@ namespace impl {
 	//Converts a and b to 256-double vectors and divides them. Very precise.
 	template<int round, typename T = __m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_avx(__m128i a, __m128i b) {
-		//Are the template parameters valid?
+		//0.: Are the template parameters valid?
 		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_avx has to be either TRUNCATE(1) or PRECISE(2)!");
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_avx can only return either __m128i or __m128!");
 
-		//Computation
+		//1.: Computation
 		const __m256d da = _mm256_cvtepi32_pd(a);
 		const __m256d db = _mm256_cvtepi32_pd(b);
 		const __m256d dr = _mm256_div_pd(da, db);
 
-		//Return in the right form
+		//2.: Return in the right form
 		if constexpr (typeid(T) == typeid(__m128i)) {
 			if constexpr (round == PRECISE)
 				return _mm256_cvtpd_epi32(dr);
@@ -457,41 +404,43 @@ namespace impl {
 	}
 	//Divides a by b elementwise.
 	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
-	//rcp: 0=div-div, 1=div-rcp, 2=rcp-div, 3=rcp-rcp. Fast has 0 Newton-iterations, otherwise 1.
-	template<int round, typename T = __m128i, int rcp, bool fast>
+	//Note: rcp: 0=div-div, 1=div-rcp, 2=rcp-div, 3=rcp-rcp. 
+	//Note: Fast has 0 Newton-iterations, otherwise 1. (0f course only makes a difference, if rcp!=0)
+	template<int round, int rcp, typename T = __m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epi32_split(__m128i a, __m128i b) {
-		//Are the template parameters valid?
-		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_split has to be either TRUNCATE(1) or PRECISE(2)!");
+		//0.: Are the template parameters valid?
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_split has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		static_assert(!(rcp != 0 && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epi32_split can only return either __m128i or __m128!");
 		static_assert(rcp==0 || rcp==1 || rcp==2 || rcp==3, "_mm_idiv_epi32_split only accepts rcp 0 to 3");
 	
-		//Computation
-		const __m128 ha = _mm_cvtepi32_ps(_mm_srai_epi32(a, 24));//High 8 bits of a
-		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1)|(1<<31)));//Lower 24 bits of a, will fit in mantissa of float
-		const __m128 fb = _mm_cvtepi32_ps(b);//If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
+		//1.: Computation
+		const __m128 ha = _mm_cvtepi32_ps(_mm_srai_epi32(a, 24)); //High 8 bits of a
+		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1)|(1<<31))); //Lower 24 bits of a, will fit in mantissa of float
+		const __m128 fb = _mm_cvtepi32_ps(b); //If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
 
 		__m128 fr;
 		if constexpr(rcp==0){
-			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else if constexpr(rcp==1){
-			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
-			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 rcp = _mm_rcp_ps<round!=FAST>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else if constexpr(rcp==2){
-			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
-			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 rcp = _mm_rcp_ps<round!=FAST>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else if constexpr(rcp==3){
-			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
-			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 rcp = _mm_rcp_ps<round!=FAST>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else {
 			UNREACHABLE();
 		}
 		
 
-		//Return in the right form
+		//2.: Return in the right form
 		if constexpr (typeid(T) == typeid(__m128i)) {
 			if constexpr (round == PRECISE)
 				return _mm_cvtps_epi32(fr);
@@ -508,39 +457,40 @@ namespace impl {
 	//Divides a by b elementwise.
 	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
 	//rcp: 0=div-div, 1=div-rcp, 2=rcp-div, 3=rcp-rcp. Fast has 0 Newton-iterations, otherwise 1.
-	template<int round, typename T = __m128i, int rcp, bool fast>
+	template<int round, int rcp, typename T = __m128i>
 	ALWAYS_INLINE __m128i _mm_idiv_epu32_split(__m128i a, __m128i b) {
-		//Are the template parameters valid?
-		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epu32_split has to be either TRUNCATE(1) or PRECISE(2)!");
+		//0.: Are the template parameters valid?
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epu32_split has to be either TRUNCATE(1) or PRECISE(2)!");
+		static_assert(!(rcp != 0 && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m128), "_mm_idiv_epu32_split can only return either __m128i or __m128!");
 		static_assert(rcp==0 || rcp==1 || rcp==2 || rcp==3, "_mm_idiv_epu32_split only accepts rcp 0 to 3");
 	
-		//Computation
-		const __m128 ha = _mm_cvtepi32_ps(_mm_srli_epi32(a, 24));//High 8 bits of a
-		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1)));//Lower 24 bits of a, will fit in mantissa of float
-		const __m128 fb = _mm_cvtepi32_ps(b);//If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
+		//1.: Computation
+		const __m128 ha = _mm_cvtepi32_ps(_mm_srli_epi32(a, 24)); //High 8 bits of a
+		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1))); //Lower 24 bits of a, will fit in mantissa of float
+		const __m128 fb = _mm_cvtepi32_ps(b); //If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
 
 		__m128 fr;
 		if constexpr(rcp==0){
-			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else if constexpr(rcp==1){
-			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
-			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 rcp = _mm_rcp_ps<round!=FAST>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else if constexpr(rcp==2){
-			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
-			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_div_ps(la, fb), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 rcp = _mm_rcp_ps<round!=FAST>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_div_ps(la, fb), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else if constexpr(rcp==3){
-			const __m128 rcp = _mm_rcp_ps<!fast>(fb);
-			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24)));//Divide and shift back up(upper 8 bits, shift left by 24)
-			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr);//fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
+			const __m128 rcp = _mm_rcp_ps<round!=FAST>(fb);
+			const __m128 hr = _mm_mul_ps(_mm_mul_ps(ha, rcp), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
+			fr = _mm_add_ps(_mm_mul_ps(la, rcp), hr); //fr=a/b=(2^24*ha+la)/b=2^24*(ha/b)+la/b
 		} else {
 			UNREACHABLE();
 		}
 
-		//Return in the right form
+		//2.: Return in the right form
 		if constexpr (typeid(T) == typeid(__m128i)) {
 			if constexpr (round == PRECISE)
 #ifdef AVX512
