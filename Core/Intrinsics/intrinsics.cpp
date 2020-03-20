@@ -7,7 +7,7 @@ namespace intrin {
  *******************************/
 	
 //Integer division. Don't mess with the values or error messages will be wrong
-enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possible, FAST=not as precise, TRUNCATE=same behaviour as sisd integer division.
+enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possible, FAST=allows functions to sacrifice some precision for speed, TRUNCATE=same behaviour as sisd integer division.
 enum { SMALL = 0, BIG = 1 }; //BIG=input can be as big as possible, SMALL=input has to be <=2^24
 	
 namespace impl {
@@ -177,11 +177,13 @@ namespace impl {
 	 * https://stackoverflow.com/questions/16822757/sse-integer-division
 	*/
 	//Divides a_epi16 by b_epi16 elementwise. If AVX2 is available, it can also return the result as floats.
-	//Note: Correctness has to be verified
-	template<int round, typename T=__m128i>
-	ALWAYS_INLINE __m128i _mm_div_epi16_rcp(const __m128i &a_epi16, const __m128i &b_epi16) {
+	//Note: Correctness has to be verified when use_rcp is true
+	//Note: FAST only differs from the rest, if use_rcp is true
+	template<int round, bool use_rcp, typename T=__m128i>
+	ALWAYS_INLINE __m128i _mm_div_epi16_impl(const __m128i &a_epi16, const __m128i &b_epi16) {
 		//0.: Are the template parameters valid?
 		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epi16_rcp has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		static_assert(!(use_rcp && PRECISE), "If you want a precise division, don't use reciprocals!");
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
@@ -191,93 +193,26 @@ namespace impl {
 		const __m256 a_float = _mm256_cvtepi32_ps(a);
 		const __m256 b_float = _mm256_cvtepi32_ps(b);
 
-		//3.: Calculate reciprocal             (b_rcp = 1/b_float)
-		__m256 b_rcp;
-		if constexpr(round==FAST)
-			b_rcp = _mm256_rcp_ps<0>(b_float);
-		else
-			b_rcp = _mm256_rcp_ps<1>(b_float);
+		//3.: Actual computation
+		__m256 c_float;
+		if constexpr(use_rcp){
+			//3.1.: Calculate reciprocal             (b_rcp = 1/b_float)
+			__m256 b_rcp;
+			if constexpr(round==FAST)
+				b_rcp = _mm256_rcp_ps<0>(b_float);
+			else
+				b_rcp = _mm256_rcp_ps<1>(b_float);
 
-		//4.: Divide
-		const __m256 c_float = _mm256_mul_ps(a_float, b_rcp);
+			//3.2.: Divide
+			c_float = _mm256_mul_ps(a_float, b_rcp);
+		} else {
+			//3.: Divide
+			c_float = _mm256_div_ps(a_float, b_float);
+		}
 		
 		if constexpr(typeid(T)==typeid(__m256))
 			return c_float;
 
-		//5.: Convert back to epi32
-		__m256i c_epi32;
-		if constexpr(round==TRUNCATE)
-			c_epi32 = _mm256_cvttps_epi32(c_float);
-		else
-			c_epi32 = _mm256_cvtps_epi32(c_float);
-
-		//6.: Convert back to epi16
-		return _mm256_cvt_i32x8_i16x8(c_epi32);
-
-#else		
-		//1.: Convert to epi32
-		__m128i a_hi_epi32;
-		__m128i a_lo_epi32;
-		__m128i b_hi_epi32;
-		__m128i b_lo_epi32;
-		_mm_cvt_i16x8_2i32x4(a_epi16, a_hi_epi32, a_lo_epi32);
-		_mm_cvt_i16x8_2i32x4(b_epi16, b_hi_epi32, b_lo_epi32);
-
-		//2.: Convert to float
-		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
-		const __m128 a_lo = _mm_cvtepi32_ps(a_lo_epi32);
-		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
-		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
-
-		//3.: Calculate reciprocal
-		__m128 b_hi_rcp, b_lo_rcp;
-		if constexpr(round==FAST){
-			b_hi_rcp = _mm_rcp_ps<0>(b_hi);
-			b_lo_rcp = _mm_rcp_ps<0>(b_lo);
-		} else {
-			b_hi_rcp = _mm_rcp_ps<1>(b_hi);
-			b_lo_rcp = _mm_rcp_ps<1>(b_lo);
-		}
-
-		//4.: Divide
-		const __m128 hi = _mm_mul_ps(a_hi, b_hi_rcp);
-		const __m128 lo = _mm_mul_ps(a_lo, b_lo_rcp);
-
-		//5.: Convert back to epi32
-		__m128i hi_epi32, lo_epi32;
-		if constexpr(round==TRUNCATE){
-			hi_epi32 = _mm_cvttps_epi32(hi);
-			lo_epi32 = _mm_cvttps_epi32(lo);
-		} else {
-			hi_epi32 = _mm_cvtps_epi32(hi);
-			lo_epi32 = _mm_cvtps_epi32(lo);
-		}
-
-		//6.: Convert back to epi16
-		return _mm_cvt_2i32x4_i16x8(lo_epi32, hi_epi32);
-#endif
-	}
-	//Divides a_epi16 by b_epi16 elementwise. If AVX2 is available, it can also return the result as floats.
-	//Note: Result will always be correct
-	template<int round, typename T=__m128i>
-	ALWAYS_INLINE __m128i _mm_div_epi16_div(const __m128i &a_epi16, const __m128i &b_epi16) { 
-		//0.: Are the template parameters valid?
-		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epi16_div has to be either TRUNCATE(1) or PRECISE(2)!");
-#if AVX >= 2
-		//1.: Convert to epi32
-		const __m256i a = _mm256_cvtepi16_epi32(a_epi16);
-		const __m256i b = _mm256_cvtepi16_epi32(b_epi16);
-
-		//2.: Convert to float
-		const __m256 a_float = _mm256_cvtepi32_ps(a);
-		const __m256 b_float = _mm256_cvtepi32_ps(b);
-
-		//3.: Divide
-		const __m256 c_float = _mm256_div_ps(a_float, b_float);
-
-		if constexpr(typeid(T)==typeid(__m256))
-			return c_float;
-	
 		//4.: Convert back to epi32
 		__m256i c_epi32;
 		if constexpr(round==TRUNCATE)
@@ -287,6 +222,7 @@ namespace impl {
 
 		//5.: Convert back to epi16
 		return _mm256_cvt_i32x8_i16x8(c_epi32);
+
 #else		
 		//1.: Convert to epi32
 		__m128i a_hi_epi32;
@@ -302,9 +238,27 @@ namespace impl {
 		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
 		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
 
-		//3.: Divide
-		const __m128 hi = _mm_div_ps(a_hi, b_hi);
-		const __m128 lo = _mm_div_ps(a_lo, b_lo);
+		//3.: Actual computation
+		__m128 hi, lo;
+		if constexpr(use_rcp){
+			//3.1: Calculate reciprocal
+			__m128 b_hi_rcp, b_lo_rcp;
+			if constexpr(round==FAST){
+				b_hi_rcp = _mm_rcp_ps<0>(b_hi);
+				b_lo_rcp = _mm_rcp_ps<0>(b_lo);
+			} else {
+				b_hi_rcp = _mm_rcp_ps<1>(b_hi);
+				b_lo_rcp = _mm_rcp_ps<1>(b_lo);
+			}
+
+			//3.2.: Divide
+			hi = _mm_mul_ps(a_hi, b_hi_rcp);
+			lo = _mm_mul_ps(a_lo, b_lo_rcp);
+		} else {
+			//3.: Divide
+			hi = _mm_div_ps(a_hi, b_hi);
+			lo = _mm_div_ps(a_lo, b_lo);
+		}
 
 		//4.: Convert back to epi32
 		__m128i hi_epi32, lo_epi32;
@@ -321,11 +275,13 @@ namespace impl {
 #endif
 	}
 	//Divides a_epu16 by b_epu16 elementwise. If AVX2 is available, it can also return the result as floats.
-	//Note: Correctness has to be verified
-	template<int round, typename T=__m128i>
+	//Note: Correctness has to be verified, if use_rcp is true
+	//Note: FAST only differs from the rest, if use_rcp is true
+	template<int round, bool use_rcp, typename T=__m128i>
 	ALWAYS_INLINE __m128i _mm_div_epu16_rcp(const __m128i &a_epu16, const __m128i &b_epu16) { 
 		//0.: Are the template parameters valid?
 		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epu16_rcp has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		static_assert(!(use_rcp && PRECISE), "If you want a precise division, don't use reciprocals!");
 #if AVX >= 2
 		//1.: Convert to epi32
 		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
@@ -335,15 +291,22 @@ namespace impl {
 		const __m256 a_float = _mm256_cvtepi32_ps(a);
 		const __m256 b_float = _mm256_cvtepi32_ps(b);
 
-		//3.: Calculate reciprocal             (b_rcp = 1/b_float)
-		__m256 b_rcp; 
-		if constexpr(round==FAST)
-			b_rcp = _mm256_rcp_ps<0>(b_float);
-		else
-			b_rcp = _mm256_rcp_ps<1>(b_float);
+		//3.: Perform the actual computation
+		__m256 c_float;
+		if constexpr(use_rcp){
+			//3.1: Calculate reciprocal             (b_rcp = 1/b_float)
+			__m256 b_rcp; 
+			if constexpr(round==FAST)
+				b_rcp = _mm256_rcp_ps<0>(b_float);
+			else
+				b_rcp = _mm256_rcp_ps<1>(b_float);
 
-		//4.: Divide
-		const __m256 c_float = _mm256_mul_ps(a_float, b_rcp);
+			//3.2.: Divide
+			c_float = _mm256_mul_ps(a_float, b_rcp);
+		} else {
+			//3.: Divide
+			c_float = _mm256_div_ps(a_float, b_float);
+		}
 		
 		if constexpr(typeid(T)==typeid(__m256))
 			return c_float;
@@ -372,82 +335,27 @@ namespace impl {
 		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
 		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
 
-		//3.: Calculate reciprocal
-		__m128 b_hi_rcp, b_lo_rcp;
-		if constexpr(round==FAST){
-			b_hi_rcp = _mm_rcp_ps<0>(b_hi);
-			b_lo_rcp = _mm_rcp_ps<0>(b_lo);
+		//Perform the actual computation
+		__m128 hi, lo;
+		if constexpr(use_rcp){
+			//3.1.: Calculate reciprocal
+			__m128 b_hi_rcp, b_lo_rcp;
+			if constexpr(round==FAST){
+				b_hi_rcp = _mm_rcp_ps<0>(b_hi);
+				b_lo_rcp = _mm_rcp_ps<0>(b_lo);
+			} else {
+				b_hi_rcp = _mm_rcp_ps<1>(b_hi);
+				b_lo_rcp = _mm_rcp_ps<1>(b_lo);
+			}
+
+			//3.2.: Divide
+			const __m128 hi = _mm_mul_ps(a_hi, b_hi_rcp);
+			const __m128 lo = _mm_mul_ps(a_lo, b_lo_rcp);
 		} else {
-			b_hi_rcp = _mm_rcp_ps<1>(b_hi);
-			b_lo_rcp = _mm_rcp_ps<1>(b_lo);
+			//3.: Divide
+			const __m128 hi = _mm_div_ps(a_hi, b_hi);
+			const __m128 lo = _mm_div_ps(a_lo, b_lo);
 		}
-
-		//4.: Divide
-		const __m128 hi = _mm_mul_ps(a_hi, b_hi_rcp);
-		const __m128 lo = _mm_mul_ps(a_lo, b_lo_rcp);
-
-		//5.: Convert back to epi32
-		__m128i hi_epi32, lo_epi32;
-		if constexpr(round==TRUNCATE){
-			hi_epi32 = _mm_cvttps_epi32(hi);
-			lo_epi32 = _mm_cvttps_epi32(lo);
-		} else {
-			hi_epi32 = _mm_cvtps_epi32(hi);
-			lo_epi32 = _mm_cvtps_epi32(lo);
-		}
-
-		//6.: Convert back to epu16
-		return _mm_cvt_2u32x4_u16x8(lo_epi32, hi_epi32);
-#endif
-	}
-	//Divides a_epu16 by b_epu16 elementwise. If AVX2 is available, it can also return the result as floats.
-	//Note: Will always be correct
-	template<int round, typename T=__m128i>
-	ALWAYS_INLINE __m128i _mm_div_epu16_div(const __m128i &a_epu16, const __m128i &b_epu16) {
-		//0.: Are the template parameters valid?
-		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epu16_div has to be either TRUNCATE(1) or PRECISE(2)!");
-#if AVX >= 2
-		//1.: Convert to epi32
-		const __m256i a = _mm256_cvtepu16_epi32(a_epu16);
-		const __m256i b = _mm256_cvtepu16_epi32(b_epu16);
-
-		//2.: Convert to float
-		const __m256 a_float = _mm256_cvtepi32_ps(a);
-		const __m256 b_float = _mm256_cvtepi32_ps(b);
-
-		//3.: Divide
-		const __m256 c_float = _mm256_div_ps(a_float, b_float);
-
-		if constexpr(typeid(T)==typeid(__m256))
-			return c_float;
-		
-		//4.: Convert back to epi32
-		__m256i c_epi32;
-		if constexpr(round==TRUNCATE)
-			c_epi32 = _mm256_cvttps_epi32(c_float);
-		else 
-			c_epi32 = _mm256_cvtps_epi32(c_float);
-
-		//5.: Convert back to epu16
-		return _mm256_cvt_u32x8_u16x8(c_epi32);
-#else		
-		//1.: Convert to epi32
-		__m128i a_hi_epi32;
-		__m128i a_lo_epi32;
-		__m128i b_hi_epi32;
-		__m128i b_lo_epi32;
-		_mm_cvt_u16x8_2u32x4(a_epu16, a_hi_epi32, a_lo_epi32);
-		_mm_cvt_u16x8_2u32x4(b_epu16, b_hi_epi32, b_lo_epi32);
-
-		//2.: Convert to float
-		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
-		const __m128 a_lo = _mm_cvtepi32_ps(a_lo_epi32);
-		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
-		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
-
-		//3.: Divide
-		const __m128 hi = _mm_div_ps(a_hi, b_hi);
-		const __m128 lo = _mm_div_ps(a_lo, b_lo);
 
 		//4.: Convert back to epi32
 		__m128i hi_epi32, lo_epi32;
@@ -662,16 +570,16 @@ namespace impl {
 #if AVX>=2 //Otherwise, two __m128 have to be returned wich would not work with this signature		
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m256), "_mm_idiv_epi16 can only return either __m128i or __m256!");
 #else
-		static_assert(typeid(T) == typeid(__m128i), "_mm_idiv_epi16 can only return __m128i, when AVX2 is not available.");
+		static_assert(typeid(T) == typeid(__m128i), "_mm_idiv_epi16 can only return __m128i because AVX2 is not available.");
 #endif
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_div         <PRECISE , __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast        <FAST    , __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_fast_correct<TRUNCATE, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_div         <PRECISE , __m256 >(a, b); }
-	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<FAST    , __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_fast        <FAST    , __m256 >(a, b); }
-	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_fast_correct<TRUNCATE, __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_impl<PRECISE , false  , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_impl<FAST    , true   , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epi16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epi16_impl<TRUNCATE, USE_RCP, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_impl<PRECISE , false  , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<FAST    , __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_impl<FAST    , true   , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_impl<TRUNCATE, USE_RCP, __m256 >(a, b); }
 	
 	//Vector-equivalent of "return (T)a/(T)b;"
 	template<int precision = PRECISE, typename T = __m128i>
@@ -680,16 +588,16 @@ namespace impl {
 #if AVX>=2 //Otherwise, two __m128 have to be returned wich would not work with this signature		
 		static_assert(typeid(T) == typeid(__m128i) || typeid(T) == typeid(__m256), "_mm_idiv_epu16 can only return either __m128i or __m256!");
 #else
-		static_assert(typeid(T) == typeid(__m128i), "_mm_idiv_epu16 can only return __m128i, when AVX2 is not available.");
+		static_assert(typeid(T) == typeid(__m128i), "_mm_idiv_epu16 can only return __m128i because AVX2 is not available.");
 #endif
 		UNREACHABLE();
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_div         <PRECISE , __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_fast        <FAST    , __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_fast_correct<TRUNCATE, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_div         <PRECISE , __m256 >(a, b); }
-	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<FAST    , __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_fast        <FAST    , __m256 >(a, b); }
-	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_fast_correct<TRUNCATE, __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<PRECISE , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_impl<PRECISE , false  , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<FAST    , __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_impl<FAST    , true   , __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m128i _mm_idiv_epu16<TRUNCATE, __m128i>(__m128i a, __m128i b) { return _mm_div_epu16_impl<TRUNCATE, USE_RCP, __m128i>(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<PRECISE , __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_impl<PRECISE , false  , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<FAST    , __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_impl<FAST    , true   , __m256 >(a, b); }
+	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_impl<TRUNCATE, USE_RCP, __m256 >(a, b); }
 
 	//Vector-equivalent of "return (T)a/(T)b;"
 	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
@@ -1282,8 +1190,7 @@ public:
 /*************************************************************************
  *                     Makros                                            *
  * - _mm_cvt_[i,u]16x8_2[i,u]32x4_10 and _mm_cvt_[i,u]32x4_2[i,u]16x8_10 * _10, _20, _21 | SSE4.1-support & speed (benchmark together, roundtrip)
- * - _mm_div_ep[i,u]16_fast                                              * _div, _rcp    | speed
- * - _mm_div_ep[i,u]16_fast_correct                                      * _div, _rcp    | Correctness & speed
+ * - USE_RCP                                                             * true, false for _mm_div_epi16_impl | Has to be correct & speed
  * - _mm_idiv_epi32_precise_int                                          * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128i>)
  * - _mm_idiv_epi32_precise_float                                        * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & speed (<PRECISE, __m128>)
  * - __RCP                                                               * 0 to 3, for _mm_idiv_ep[i,u]32_split | Correctness & speed
