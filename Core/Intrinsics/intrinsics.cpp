@@ -513,6 +513,7 @@ namespace impl {
 		}
 	}
 	
+//--------------------------------------Interface for integer division--------------------------------------//	
 	//Vector-equivalent of "return (T)a/(T)b;"
 	template<int precision = PRECISE, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi16(__m128i a, __m128i b) {
@@ -651,7 +652,7 @@ public:
 		return (vec_int16x8)_mm_mullo_epi16(vec, in.getVec());
 	}
 	inline vec_int16x8 operator/(vec_int16x8 in) {//Always correct
-		return (vec_int16x8)impl::_mm_div_epi16(vec, in.getVec());
+		return (vec_int16x8)impl::_mm_idiv_epi16<TRUNCATE, __m128i>(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_int16x8 in) {
@@ -664,7 +665,7 @@ public:
 		vec = _mm_mullo_epi16(vec, in.getVec());
 	}
 	inline void operator/=(vec_int16x8 in) {//Always correct
-		vec = impl::_mm_div_epi16(vec, in.getVec());
+		vec = impl::_mm_idiv_epi16<TRUNCATE, __m128i>(vec, in.getVec());
 	}
 	//Bitwise operator
 	inline vec_int16x8 operator&(vec_int16x8 in) {
@@ -731,7 +732,7 @@ public:
 		return (vec_int16x8)_mm_mullo_epi16(vec, in.getVec()); //Works for unsigned too
 	}
 	inline vec_uint16x8 operator/(vec_uint16x8 in) {//Always correct
-		return (vec_uint16x8)impl::_mm_div_epu16(vec, in.getVec());
+		return (vec_uint16x8)impl::_mm_idiv_epu16<TRUNCATE, __m128i>(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_int16x8 in) {
@@ -744,7 +745,7 @@ public:
 		vec = _mm_mullo_epi16(vec, in.getVec()); //Works for unsigned too
 	}
 	inline void operator/=(vec_int16x8 in) {//Always correct
-		vec = impl::_mm_div_epu16(vec, in.getVec());
+		vec = impl::_mm_idiv_epu16<TRUNCATE, __m128i>(vec, in.getVec());
 	}
 	//Bitwise operator
 	inline vec_int16x8 operator&(vec_int16x8 in) {
@@ -821,7 +822,7 @@ public:
 #endif
 	}
 	inline vec_int32x4 operator/(vec_int32x4 in) {//Always correct
-		return (vec_int32x4)impl::_mm_idiv_epi32<TRUNCATE,BIG,__m128i>(vec, in.getVec());
+		return (vec_int32x4)impl::_mm_idiv_epi32<TRUNCATE, BIG, __m128i>(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_int32x4 in) {
@@ -844,7 +845,7 @@ public:
 #endif
 	}
 	inline void operator/=(vec_int32x4 in) {//Always correct
-		vec = _impl::_mm_idiv_epi32<TRUNCATE,BIG,__m128i>(vec, in.getVec());
+		vec = _impl::_mm_idiv_epi32<TRUNCATE, BIG, __m128i>(vec, in.getVec());
 	}
 	//Bitwise operator
 	inline vec_int32x4 operator&(vec_int32x4 in) {
@@ -921,7 +922,7 @@ public:
 #endif
 	}
 	inline vec_uint32x4 operator/(vec_uint32x4 in) {//Always correct
-		return (vec_uint32x4)impl::_mm_idiv_epu32<TRUNCATE,BIG,__m128i>(vec, in.getVec());
+		return (vec_uint32x4)impl::_mm_idiv_epu32<TRUNCATE, BIG, __m128i>(vec, in.getVec());
 	}
 	//Arithmetic operators, acting on itself
 	inline void operator+=(vec_uint32x4 in) {
@@ -944,7 +945,7 @@ public:
 #endif
 	}
 	inline void operator/=(vec_uint32x4 in) {//Always correct
-		vec = _impl::_mm_idiv_epu32<TRUNCATE,BIG,__m128i>(vec, in.getVec());
+		vec = _impl::_mm_idiv_epu32<TRUNCATE, BIG, __m128i>(vec, in.getVec());
 	}
 	//Bitwise operator
 	inline vec_uint32x4 operator&(vec_uint32x4 in) {
