@@ -36,8 +36,9 @@ using pack = std::conditional_t<
     >>;
 	
 
-template<int size, int round>
-pack<int16_t, 8> divide(pack<int16_t, 8> a, pack<int16_t, 8> b)
-	
+template<int precision = PRECISE, typename T>
+T divide(pack<int16_t, 8> a, pack<int16_t, 8> b)
+	static_assert(std::is_same<T,pack<int16_t, 8>>{}||std::is_same<T,pack<float, 8>>{}, "divide(pack<int16_t, 8> a, pack<int16_t, 8> b) has to return either pack<int16_t, 8> or pack<float, 8>");
+	return (T)_mm_idiv_epi16<precision, T::intrin_type>(a.getVec(), b.getVec());
 }
 #undef PACK_TYPE
