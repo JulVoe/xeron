@@ -36,9 +36,24 @@ using pack = std::conditional_t<
     >>;
 	
 
-template<int precision = PRECISE, typename T>
+template<int precision = PRECISE, typename T = pack<int16_t, 8>>
 T divide(pack<int16_t, 8> a, pack<int16_t, 8> b)
 	static_assert(std::is_same<T,pack<int16_t, 8>>{}||std::is_same<T,pack<float, 8>>{}, "divide(pack<int16_t, 8> a, pack<int16_t, 8> b) has to return either pack<int16_t, 8> or pack<float, 8>");
 	return (T)_mm_idiv_epi16<precision, T::intrin_type>(a.getVec(), b.getVec());
+}
+template<int precision = PRECISE, typename T = pack<uint16_t, 8>>
+T divide(pack<uint16_t, 8> a, pack<uint16_t, 8> b)
+	static_assert(std::is_same<T,pack<uint16_t, 8>>{}||std::is_same<T,pack<float, 8>>{}, "divide(pack<uint16_t, 8> a, pack<uint16_t, 8> b) has to return either pack<uint16_t, 8> or pack<float, 8>");
+	return (T)_mm_idiv_epu16<precision, T::intrin_type>(a.getVec(), b.getVec());
+}
+template<int precision = PRECISE, int size = BIG, typename T = pack<int32_t, 4>>
+T divide(pack<int32_t, 4> a, pack<int32_t, 4> b)
+	static_assert(std::is_same<T,pack<int32_t, 4>>{}||std::is_same<T,pack<float, 4>>{}||std::is_same<T,pack<double, 4>>{}, "divide(pack<int32_t, 4> a, pack<int32_t, 4> b) has to return either pack<int32_t, 4>, pack<float, 4> or pack<double, 4>");
+	return (T)_mm_idiv_epi32<precision, size, T::intrin_type>(a.getVec(), b.getVec());
+}
+template<int precision = PRECISE, int size = BIG, typename T = pack<uint32_t, 4>>
+T divide(pack<uint32_t, 4> a, pack<uint32_t, 4> b)
+	static_assert(std::is_same<T,pack<uint32_t, 4>>{}||std::is_same<T,pack<float, 4>>{}||std::is_same<T,pack<double, 4>>{}, "divide(pack<uint32_t, 4> a, pack<uint32_t, 4> b) has to return either pack<uint32_t, 4>, pack<float, 4> or pack<double, 4>");
+	return (T)_mm_idiv_epu32<precision, size, T::intrin_type>(a.getVec(), b.getVec());
 }
 #undef PACK_TYPE
