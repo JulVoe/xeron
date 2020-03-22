@@ -121,13 +121,13 @@
 #define KB *1024
 #define CACHE_SIZE 64KB
 #define CACHE_LINE_SIZE 64
-#define CORES 4
-#define THREADS 8
+#define CORES 8
+#define THREADS 16
 
 //Other useful macros for performance improvement
 #ifndef VS
 #define BRANCH_PREDICT(condition,prob) __builtin_expect(condition,prob)
-#define UNREACHABLE __builtin_unreachable();
+#define UNREACHABLE __builtin_unreachable
 #define ALWAYS_INLINE __attribute__((always_inline)) inline
 #define RESTRICT __restrict__
 #else
