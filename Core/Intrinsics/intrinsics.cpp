@@ -652,10 +652,10 @@ public:
 	inline void load(const __m128i v) { vec = v; }
 	inline void load(const int16_t i) { vec = _mm_set1_epi16(i); }
 	inline void load(const int16_t i1, const int16_t i2, const int16_t i3, const int16_t i4, const int16_t i5, const int16_t i6, const int16_t i7, const int16_t i8) { 
-		vec = _mm_set_epi16(i1, i2, i3, i4, i5, i6, i7, i8); 
+		vec = _mm_setr_epi16(i1, i2, i3, i4, i5, i6, i7, i8); 
 	}
-	template<bool aligned, bool temporal> inline void store(const int16_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
-	template<> inline void store<true, true>(const int16_t* p) { _mm_store_si128((__m128i*)p,vec); }
+	template<bool aligned, bool temporal> inline void store(const int16_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true> (const int16_t* p) { _mm_store_si128 ((__m128i*)p, vec); }
 	template<> inline void store<false, true>(const int16_t* p) { _mm_storeu_si128((__m128i*)p, vec); }
 	template<> inline void store<true, false>(const int16_t* p) { _mm_stream_si128((__m128i*)p, vec); }
 
@@ -730,13 +730,13 @@ public:
 		static_assert(align, "Non temporal loads must be aligned!");
 		vec = _mm_stream_load_si128((__m128i*)p);
 	}
-	inline void load(const __m128i v) { vec = v; }
+	inline void load(const __m128i  v) { vec = v; }
 	inline void load(const uint16_t i) { vec = _mm_set1_epi16(i); }
 	inline void load(const uint16_t i1, const uint16_t i2, const uint16_t i3, const uint16_t i4, const uint16_t i5, const uint16_t i6, const uint16_t i7, const uint16_t i8) {
-		vec = _mm_set_epi16(i1, i2, i3, i4, i5, i6, i7, i8);
+		vec = _mm_setr_epi16(i1, i2, i3, i4, i5, i6, i7, i8);
 	}
-	template<bool aligned, bool temporal> inline void store(const uint16_t* p) { static_assert(aligned || temporal, "Non temporal stores must be aligned"); }
-	template<> inline void store<true, true>(const uint16_t* p) { _mm_store_si128((__m128i*)p, vec); }
+	template<bool aligned, bool temporal> inline void store(const uint16_t* p) { static_assert(aligned || temporal, "Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true> (const uint16_t* p) { _mm_store_si128 ((__m128i*)p, vec); }
 	template<> inline void store<false, true>(const uint16_t* p) { _mm_storeu_si128((__m128i*)p, vec); }
 	template<> inline void store<true, false>(const uint16_t* p) { _mm_stream_si128((__m128i*)p, vec); }
 
@@ -814,10 +814,10 @@ public:
 	inline void load(const __m128i v) { vec = v; }
 	inline void load(const int32_t i) { vec = _mm_set1_epi32(i); }
 	inline void load(const int32_t i1, const int32_t i2, const int32_t i3, const int32_t i4) { 
-		vec = _mm_set_epi32(i1, i2, i3, i4); 
+		vec = _mm_setr_epi32(i1, i2, i3, i4); 
 	}
-	template<bool aligned, bool temporal> inline void store(const int32_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
-	template<> inline void store<true, true>(const int32_t* p) { _mm_store_si128((__m128i*)p,vec); }
+	template<bool aligned, bool temporal> inline void store(const int32_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true> (const int32_t* p) { _mm_store_si128 ((__m128i*)p, vec); }
 	template<> inline void store<false, true>(const int32_t* p) { _mm_storeu_si128((__m128i*)p, vec); }
 	template<> inline void store<true, false>(const int32_t* p) { _mm_stream_si128((__m128i*)p, vec); }
 
@@ -912,13 +912,13 @@ public:
 		static_assert(align,"Non temporal loads must be aligned!");
 		vec = _mm_stream_load_si128((__m128i*)p);
 	}
-	inline void load(const __m128i v) { vec = v; }
+	inline void load(const __m128i  v) { vec = v; }
 	inline void load(const uint32_t i) { vec = _mm_set1_epi32(i); }
 	inline void load(const uint32_t i1, const uint32_t i2, const uint32_t i3, const uint32_t i4) { 
-		vec = _mm_set_epi32(i1, i2, i3, i4); 
+		vec = _mm_setr_epi32(i1, i2, i3, i4); 
 	}
-	template<bool aligned, bool temporal> inline void store(const uint32_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
-	template<> inline void store<true, true>(const uint32_t* p) { _mm_store_si128((__m128i*)p,vec); }
+	template<bool aligned, bool temporal> inline void store(const uint32_t* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true> (const uint32_t* p) { _mm_store_si128 ((__m128i*)p, vec); }
 	template<> inline void store<false, true>(const uint32_t* p) { _mm_storeu_si128((__m128i*)p, vec); }
 	template<> inline void store<true, false>(const uint32_t* p) { _mm_stream_si128((__m128i*)p, vec); }
 
@@ -1014,12 +1014,12 @@ public:
 		vec = _mm_stream_load_si128((__m128i*)p);
 	}
 	inline void load(const __m128 v) { vec = v; }
-	inline void load(const float i) { vec = _mm_set1_ps(i); }
+	inline void load(const float  i) { vec = _mm_set1_ps(i); }
 	inline void load(const float i1, const float i2, const float i3, const float i4) { 
-		vec = _mm_set_ps(i1, i2, i3, i4); 
+		vec = _mm_setr_ps(i1, i2, i3, i4); 
 	}
-	template<bool aligned, bool temporal> inline void store(const float* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
-	template<> inline void store<true, true>(const float* p) { _mm_store_ps((__m128*)p,vec); }
+	template<bool aligned, bool temporal> inline void store(const float* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true> (const float* p) { _mm_store_ps ((__m128*)p, vec); }
 	template<> inline void store<false, true>(const float* p) { _mm_storeu_ps((__m128*)p, vec); }
 	template<> inline void store<true, false>(const float* p) { _mm_stream_ps((__m128*)p, vec); }
 
@@ -1092,15 +1092,15 @@ public:
 	}
 	template<> inline void load<false>(const double* p, constexpr bool align = true) {
 		static_assert(align,"Non temporal loads must be aligned!");
-		vec = _mm_stream_load_si128((__m128i*)p);
+		vec = _mm_stream_load_si128((__m128d*)p);
 	}
 	inline void load(const __m128d v) { vec = v; }
-	inline void load(const double i) { vec = _mm_set1_pd(i); }
+	inline void load(const double  i) { vec = _mm_set1_pd(i); }
 	inline void load(const double i1, const double i2) { 
-		vec = _mm_set_pd(i1, i2); 
+		vec = _mm_setr_pd(i1, i2); 
 	}
-	template<bool aligned, bool temporal> inline void store(const double* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); }
-	template<> inline void store<true, true>(const double* p) { _mm_store_pd((__m128d*)p,vec); }
+	template<bool aligned, bool temporal> inline void store(const double* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true> (const double* p) { _mm_store_pd ((__m128d*)p, vec); }
 	template<> inline void store<false, true>(const double* p) { _mm_storeu_pd((__m128d*)p, vec); }
 	template<> inline void store<true, false>(const double* p) { _mm_stream_pd((__m128d*)p, vec); }
 
@@ -1151,6 +1151,168 @@ public:
 		vec = _mm_xor_pd(vec, in.getVec());
 	}
 };
+class vec_floatx8 {// float[8]
+private:
+	using intrin_type = __m256;
+	__m256 vec;
+public:
+	//Constructors
+	vec_floatx8(const float* p, constexpr bool align = false) { load<true>(p,align); }
+	vec_floatx8(const __m256 v) { load(v); }
+	vec_floatx8(const float i) { load(i); }
+	vec_floatx8(const float i1, const float i2, const float i3, const float i4, const float i5, const float i6, const float i7, const float i8) { load(i1,i2,i3,i4,i5,i6,i7,i8); }
+
+	//Misc
+	inline __m256 getVec() { return vec; }
+	template<bool temporal>
+	inline void load(const float* p, constexpr bool align = false) {
+		if constexpr (align)
+			vec = _mm256_load_ps((__m256*)p);
+		else
+			vec = _mm256_lddqu_si128((__m256*)p);
+	}
+	template<> inline void load<false>(const float* p, constexpr bool align = true) {
+		static_assert(align,"Non temporal loads must be aligned!");
+		vec = _mm256_stream_load_si128((__m256*)p);
+	}
+	inline void load(const __m256 v) { vec = v; }
+	inline void load(const float  i) { vec = _mm256_set1_ps(i); }
+	inline void load(const float i1, const float i2, const float i3, const float i4, const float i5, const float i6, const float i7, const float i8) { 
+		vec = _mm256_setr_ps(i1, i2, i3, i4, i5, i6, i7, i8); 
+	}
+	template<bool aligned, bool temporal> inline void store(const float* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true>(const float* p)  { _mm256_store_ps ((__m256*)p, vec); }
+	template<> inline void store<false, true>(const float* p) { _mm256_storeu_ps((__m256*)p, vec); }
+	template<> inline void store<true, false>(const float* p) { _mm256_stream_ps((__m256*)p, vec); }
+
+	//Arithmetic operators
+	inline vec_floatx8 operator+(vec_floatx8 in){
+		return (vec_floatx8)_mm256_add_ps(vec, in.getVec());
+	}
+	inline vec_floatx8 operator-(vec_floatx8 in) {
+		return (vec_floatx8)_mm256_sub_ps(vec, in.getVec());
+	}
+	inline vec_floatx8 operator*(vec_floatx8 in) {
+		return (vec_floatx8)_mm256_mul_ps(vec, in.getVec());
+	}
+	inline vec_floatx8 operator/(vec_floatx8 in) {//Always correct
+		return (vec_floatx8)_mm256_div_ps(vec, in.getVec());
+	}
+	//Arithmetic operators, acting on itself
+	inline void operator+=(vec_floatx8 in) {
+		vec = _mm256_add_ps(vec, in.getVec());
+	}
+	inline void operator-=(vec_floatx8 in) {
+		vec = _mm256_sub_ps(vec, in.getVec());
+	}
+	inline void operator*=(vec_floatx8 in) {
+		vec = _mm256_mul_ps(vec, in.getVec());
+	}
+	inline void operator/=(vec_floatx8 in) {//Always correct
+		vec = _mm256_div_ps(vec, in.getVec());
+	}
+	//Bitwise operator
+	inline vec_floatx8 operator&(vec_floatx8 in) {
+		return (vec_floatx8)_mm256_and_ps(vec, in.getVec());
+	}
+	inline vec_floatx8 operator|(vec_floatx8 in) {
+		return (vec_floatx8)_mm256_or_ps(vec, in.getVec());
+	}
+	inline vec_floatx8 operator^(vec_floatx8 in) {
+		return (vec_floatx8)_mm256_xor_ps(vec, in.getVec());
+	}
+	//Bitwise operators, acting on itself
+	inline void operator&=(vec_floatx8 in) {
+		vec = _mm256_and_ps(vec, in.getVec());
+	}
+	inline void operator|=(vec_floatx8 in) {
+		vec = _mm256_or_ps(vec, in.getVec());
+	}
+	inline void operator^=(vec_floatx8 in) {
+		vec = _mm256_xor_ps(vec, in.getVec());
+	}
+};
+class vec_doublex4 {// double[4]
+private:
+	using intrin_type = __m256d;
+	__m256d vec;
+public:
+	//Constructors
+	vec_doublex4(const double* p, constexpr bool align = false) { load<true>(p,align); }
+	vec_doublex4(const __m256d v) { load(v); }
+	vec_doublex4(const double i) { load(i); }
+	vec_doublex4(const double i1, const double i2, const double i3, const double i4) { load(i1,i2,i3,i4); }
+
+	//Misc
+	inline __m256d getVec() { return vec; }
+	template<bool temporal>
+	inline void load(const double* p, constexpr bool align = false) {
+		if constexpr (align)
+			vec = _mm256_load_pd((__m256d*)p);
+		else
+			vec = _mm256_lddqu_si128((__m256d*)p);
+	}
+	template<> inline void load<false>(const double* p, constexpr bool align = true) {
+		static_assert(align,"Non temporal loads must be aligned!");
+		vec = _mm256_stream_load_si128((__m256d*)p);
+	}
+	inline void load(const __m256d v) { vec = v; }
+	inline void load(const double i) { vec = _mm256_set1_pd(i); }
+	inline void load(const double i1, const double i2) { 
+		vec = _mm256_set_pd(i1, i2); 
+	}
+	template<bool aligned, bool temporal> inline void store(const double* p) { static_assert(aligned||temporal,"Non temporal stores must be aligned"); UNREACHABLE; }
+	template<> inline void store<true, true>(const double* p) { _mm256_store_pd((__m256d*)p,vec); }
+	template<> inline void store<false, true>(const double* p) { _mm256_storeu_pd((__m256d*)p, vec); }
+	template<> inline void store<true, false>(const double* p) { _mm256_stream_pd((__m256d*)p, vec); }
+
+	//Arithmetic operators
+	inline vec_doublex4 operator+(vec_doublex4 in){
+		return (vec_doublex4)_mm256_add_pd(vec, in.getVec());
+	}
+	inline vec_doublex4 operator-(vec_doublex4 in) {
+		return (vec_doublex4)_mm256_sub_pd(vec, in.getVec());
+	}
+	inline vec_doublex4 operator*(vec_doublex4 in) {
+		return (vec_doublex4)_mm256_mul_pd(vec, in.getVec());
+	}
+	inline vec_doublex4 operator/(vec_doublex4 in) {//Always correct
+		return (vec_doublex4)_mm256_div_pd(vec, in.getVec());
+	}
+	//Arithmetic operators, acting on itself
+	inline void operator+=(vec_doublex4 in) {
+		vec = _mm256_add_pd(vec, in.getVec());
+	}
+	inline void operator-=(vec_doublex4 in) {
+		vec = _mm256_sub_pd(vec, in.getVec());
+	}
+	inline void operator*=(vec_doublex4 in) {
+		vec = _mm256_mul_pd(vec, in.getVec());
+	}
+	inline void operator/=(vec_doublex4 in) {//Always correct
+		vec = _mm256_div_pd(vec, in.getVec());
+	}
+	//Bitwise operator
+	inline vec_doublex4 operator&(vec_doublex4 in) {
+		return (vec_doublex4)_mm256_and_pd(vec, in.getVec());
+	}
+	inline vec_doublex4 operator|(vec_doublex4 in) {
+		return (vec_doublex4)_mm256_or_pd(vec, in.getVec());
+	}
+	inline vec_doublex4 operator^(vec_doublex4 in) {
+		return (vec_doublex4)_mm256_xor_pd(vec, in.getVec());
+	}
+	//Bitwise operators, acting on itself
+	inline void operator&=(vec_doublex4 in) {
+		vec = _mm256_and_pd(vec, in.getVec());
+	}
+	inline void operator|=(vec_doublex4 in) {
+		vec = _mm256_or_pd(vec, in.getVec());
+	}
+	inline void operator^=(vec_doublex4 in) {
+		vec = _mm256_xor_pd(vec, in.getVec());
+	}
+};	
 #else
 #error Your processeor doesn't seem to support SSE instructions. However, they are required in this version of the library for intrinsics!
 #endif
