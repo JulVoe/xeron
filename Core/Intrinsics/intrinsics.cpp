@@ -377,7 +377,7 @@ namespace impl {
 			UNREACHABLE();
 		}
 	}
-	//Divides a by b elementwise. It doesn't matter whether a nd b are signed or unsigned.
+	//Divides a by b elementwise.
 	//Converts a and b to 256-double vectors and divides them. Very precise.
 	template<int round, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi32_avx(__m128i a, __m128i b) {
