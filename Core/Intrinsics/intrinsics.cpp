@@ -8,7 +8,7 @@ namespace intrin {
 	
 //Integer division. Don't mess with the values or error messages will be wrong
 enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possible, FAST=allows functions to sacrifice some precision for speed, TRUNCATE=same behaviour as sisd integer division.
-enum { SMALL = 0, BIG = 1 }; //BIG=input can be as big as possible, SMALL=input has to be <=2^24
+enum { SMALL = 0, MEDIUM = 1, BIG = 2, HUGE = 3 }; //HUGE=as big as possible, <2^32-1, Mdeium:<2^31: SMALL:<2^23
 	
 namespace impl {
 //--------------------------------------16bit-32bit conversion--------------------------------------//	
@@ -177,8 +177,8 @@ namespace impl {
 	//Note: From https://stackoverflow.com/questions/9161807/sse-convert-short-integer-to-float
 	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_20(__m128i in, __m128& lo, __m128& hi){
 		//0.: Prepare magic constants
-		const __m128i magicInt = _mm_set1_epi16(0x4B00);
-		const __m128 magicFloat = _mm_set1_ps(8388608.0f);
+		const __m128i magicInt = _mm_set1_epi16(0x4B00); //Exponent of 23+127
+		const __m128 magicFloat = _mm_set1_ps(8388608.0f); //2^23
 
 		//1.: Widen to 32bit
 		__m128i in_lo = _mm_unpacklo_epi16(in, magicInt);
@@ -207,7 +207,96 @@ namespace impl {
 		
 		//2.: Convert to epi16
 		return _mm_cvt2i32x4_i16x8_1(lo, hi);	
+	}	
+//--------------------------------------32bit->float conversion--------------------------------------//
+	//Note: There is no good way to piece together your own float like in 16bit->float
+	
+	
+//#ifdef AVX512
+//		return _mm_cvtepu32_ps(in);
+//#else		
+	//Converts two uint32_t[4](in) to float[4]
+	//Cuts of last binary digit + 0.75ULP
+	ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_fast_huge_1(__m128i in){	
+		const __m128 half = _mm_cvtepi32_ps(_mm_srl_epi32(in,1));
+		return _mm_add_ps(half, half);
 	}
+	//Converts two uint32_t[4](in) to float[4]
+	//0.5ULP
+	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
+	ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_precise_huge_1(__m128i in){
+    		const __m128i msk_lo     = _mm_set1_epi32(0xFFFF);
+   		const __m128  cnst65536f = _mm_set1_ps(65536.0f);
+
+    		__m128i v_lo      = _mm_and_si128(in,msk_lo);
+   		__m128i v_hi      = _mm_srli_epi32(in,16);
+    		__m128  v_lo_flt  = _mm_cvtepi32_ps(v_lo); 
+    		__m128  v_hi_flt  = _mm_cvtepi32_ps(v_hi);
+            	v_hi_flt          = _mm_mul_ps(cnst65536f,v_hi_flt);
+    		return _mm_add_ps(v_hi_flt,v_lo_flt);
+	}
+	//Converts two uint32_t[4](v) to float[4]
+	//0.75ULP
+	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
+	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_big_1(const __m128i v)
+	{	
+   	 	__m128i v2 = _mm_srli_epi32(v, 1);     // v2 = v / 2
+   		__m128i v1 = _mm_sub_epi32(v, v2);     // v1 = v - (v / 2)
+    		__m128 v2f = _mm_cvtepi32_ps(v2);
+   		__m128 v1f = _mm_cvtepi32_ps(v1);
+   		return _mm_add_ps(v2f, v1f); 
+	}
+	//Converts two uint32_t[4](v) to float[4]
+	//0.75ULP
+	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
+	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_huge_1(const __m128i v)
+	{	
+		__m128i v2 = _mm_srli_epi32(v, 1);                 // v2 = v / 2
+    		__m128i v1 = _mm_and_si128(v, _mm_set1_epi32(1));  // v1 = v & 1
+    		__m128 v2f = _mm_cvtepi32_ps(v2);
+    		__m128 v1f = _mm_cvtepi32_ps(v1);
+    		return _mm_add_ps(_mm_add_ps(v2f, v2f), v1f);      // return 2 * v2 + v1
+	}
+	//Converts two uint32_t[4](v) to float[4]
+	//0.75ULP
+	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
+	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_huge_2(const __m128i v)
+	{		
+		__m128i msk0=_mm_set1_epi32(0x7FFFFFFF);
+		__m128i cnst2_31=_mm_set1_epi32(0x4F000000);
+
+		__m128i msk1=_mm_srai_epi32(v,31);
+		__m128i v_low=_mm_and_si128(msk0,v);
+		__m128  v_lowf=_mm_cvtepi32_ps(v_low);
+		__m128  v_highf=_mm_castsi128_ps(_mm_and_si128(msk1,cnst2_31));  
+		__m128  v_sum=_mm_add_ps(v_lowf,v_highf);
+		return v_sum;
+	}
+	
+	template<int round=TRUNCATE, int size=HUGE>
+	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4(__m128i in){
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_u32x4_psx4 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		static_assert(size == SMALL || size == MEDIUM || size == BIG  || size == HUGE, "_mm_cvt_u32x4_psx4 only supports size SMALL(0), MEDIUM(1), BIG(2) or HUGE(3)!");
+		
+		return _mm_cvtepu32_ps(in);
+	}
+#ifndef AVX512
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST    , SMALL >(in){ return _mm_cvt_u32x4_psx4_fast_huge    (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST    , MEDIUM>(in){ return _mm_cvt_u32x4_psx4_fast_huge    (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST    , BIG   >(in){ return _mm_cvt_u32x4_psx4_fast_huge    (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST    , HUGE  >(in){ return _mm_cvt_u32x4_psx4_fast_huge    (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<TRUNCATE, SMALL >(in){ return _mm_cvt_u32x4_psx4_truncate_big (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<TRUNCATE, MEDIUM>(in){ return _mm_cvt_u32x4_psx4_truncate_big (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<TRUNCATE, BIG   >(in){ return _mm_cvt_u32x4_psx4_truncate_big (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<TRUNCATE, HUGE  >(in){ return _mm_cvt_u32x4_psx4_truncate_huge(in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<PRECISE , SMALL >(in){ return _mm_cvt_u32x4_psx4_precise_huge (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<PRECISE , MEDIUM>(in){ return _mm_cvt_u32x4_psx4_precise_huge (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<PRECISE , BIG   >(in){ return _mm_cvt_u32x4_psx4_precise_huge (in); }
+	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<PRECISE , HUGE  >(in){ return _mm_cvt_u32x4_psx4_precise_huge (in); }
+#endif
+	
+	//TODO: Import functions from link
+	//http://stereopsis.com/sree/fpu2006.html
 //--------------------------------------Reciprocals with newton-iterations--------------------------------------//
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
 	//Approximates the inverse of float[4] (in) using intrinsic and n passes of newton iterations
@@ -382,7 +471,7 @@ namespace impl {
 #endif
 	}
 //--------------------------------------_mm_div_epi32--------------------------------------//
-	//Divides a by b elementwise.
+	//Divides [u]int32_t[4](a) by [u]int32_t[4](b) elementwise
 	//_mm_idiv_epi32_split with the extra assumption that a<=2^24. If use_rcp is true, it uses _mm_rcp_ps with multiplication instead of division
 	//Note: Very fast. Precise for a<=2^24, if !(round==FAST&&use_rcp). From there on inprecise for small b.
 	//Note: FAST only differs from the other modes, if use_rcp is true.
@@ -512,11 +601,12 @@ namespace impl {
 		static_assert(!(rcp != 0 && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{}, "_mm_idiv_epu32_split can only return either __m128i or __m128!");
 		
-		//1.: Computation
+		//1.: Cast to float
 		const __m128 ha = _mm_cvtepi32_ps(_mm_srli_epi32(a, 24)); //High 8 bits of a
 		const __m128 la = _mm_cvtepi32_ps(_mm_and_si128(a, _mm_set1_epi32((1 << 24) - 1))); //Lower 24 bits of a, will fit in mantissa of float
 		const __m128 fb = _mm_cvtepi32_ps(b); //If b has more than 24 bits, some error will occur(at most 2^-23+2^-24). This is ok, because if b is that huge, the answer is at most 2^8 and the error won't show
 
+		//2.: Computation
 		__m128 fr;
 		if constexpr(rcp==0){
 			const __m128 hr = _mm_mul_ps(_mm_div_ps(ha, fb), _mm_set1_ps((float)(1 << 24))); //Divide and shift back up(upper 8 bits, shift left by 24)
@@ -537,7 +627,7 @@ namespace impl {
 			UNREACHABLE();
 		}
 
-		//2.: Return in the right form
+		//4.: Return in the right form
 		if constexpr (std::is_same<T,__m128i>{}) {
 			if constexpr (round == TRUNCATE){
 #ifdef AVX512
@@ -603,7 +693,7 @@ namespace impl {
 	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi32(__m128i a, __m128i b) {
 		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epi32 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
-		static_assert(size == BIG || size == SMALL, "_mm_idiv_epi32 only supports size SMALL(0) or BIG(1)!");
+		static_assert(size == SMALL || size == MEDIUM || size == BIG , "_mm_idiv_epi32 only supports size SMALL(0), MEDIUM(1) or BIG(2)!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{} || std::is_same<T, __m256d>{}, "_mm_idiv_epi32 can only return either __m128i, __m128 or __m256d!");
 		UNREACHABLE();
 	}
@@ -630,10 +720,11 @@ namespace impl {
 	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epu32(__m128i a, __m128i b) {
 		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epu32 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
-		static_assert(size == BIG || size == SMALL, "_mm_idiv_epu32 only supports size SMALL(0) or BIG(1)!");
+		static_assert(size == SMALL || size == MEDIUM || size == BIG , "_mm_idiv_epu32 only supports size SMALL(0), MEDIUM(1) or BIG(2)!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{} || std::is_same<T, __m256d>{}, "_mm_idiv_epu32 can only return either __m128i, __m128 or __m256d!");
 		UNREACHABLE();
 	}
+	//TODO: use _mm_idiv_epi32_small for SMALL
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu32<PRECISE,  BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epu32_split<PRECISE,  __m128i, __RCP, false>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu32<PRECISE,  SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epu32_split<PRECISE,  __m128i, __RCP, false>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu32<FAST,     BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epu32_split<PRECISE,  __m128i, 3    , true >(a, b); }
@@ -1376,6 +1467,10 @@ public:
  * - _mm_cvt_[i,u]16x8_2[i,u]32x4 and _mm_cvt_[i,u]32x4_2[i,u]16x8       * _1, _2 | SSE4.1-support & speed (benchmark together, roundtrip)
  * - _mm256_cvt_[i,u]32x8_[i,u]16x8 and _mm256_cvt_[i,u]16x8_[i,u]32x8   * _10 | Roundtrip Speed
  * - _mm_cvt_[i,u]16x8_2psx4 and _mm_cvt_2psx4_[i,u]16x8                 * _10, _20 | Correctness & Roundtrip speed
+ * - _mm_cvt_u32x4_psx4_fast_huge                                        * _1 | Speed
+ * - _mm_cvt_u32x4_psx4_truncate_big                                     * _1 | Speed 
+ * - _mm_cvt_u32x4_psx4_truncate_huge                                    * _1,_2 |Speed
+ * - _mm_cvt_u32x4_psx4_precise_huge                                     * _1 | Speed
  * - USE_RCP                                                             * true, false for _mm_div_epi16_impl | Has to be correct & speed
  * - _mm_idiv_epi32_precise_int                                          * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & correct & speed (<PRECISE, __m128i>)
  * - _mm_idiv_epi32_precise_float                                        * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & correct & speed (<PRECISE, __m128>)
