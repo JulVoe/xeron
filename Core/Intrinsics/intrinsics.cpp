@@ -22,8 +22,9 @@ namespace impl {
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
 	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
 	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
-		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
+		const __m128i zero = _mm_setzero_si128();
 		out2 = _mm_cvtepu16_epi32(in);
+		out1 = _mm_unpackhi_epi16(in, zero);
 	}
 #else
 	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
@@ -36,8 +37,9 @@ namespace impl {
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
 	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
 	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
-		out1 = _mm_unpackhi_epi16(in, _mm_setzero_si128());
-		out2 = _mm_unpacklo_epi16(in, _mm_setzero_si128());
+		const __m128i zero = _mm_setzero_si128();
+		out1 = _mm_unpackhi_epi16(in, zero);
+		out2 = _mm_unpacklo_epi16(in, zero);
 	}
 #endif
 	//Converts two int32_t[8] (in_lo, in_hi) to int16_t[8] using saturation
