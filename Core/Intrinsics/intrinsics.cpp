@@ -392,10 +392,10 @@ namespace impl {
 
 		//2.: Return in the right form
 		if constexpr (std::is_same<T,__m128i>{}) {
-			if constexpr (round == PRECISE)
-				return _mm256_cvtpd_epi32(dr);
-			else if constexpr (round == TRUNCATE)
+			if constexpr (round == TRUNCATE)
 				return _mm256_cvttpd_epi32(dr);
+			else
+				return _mm256_cvtpd_epi32(dr);
 		}
 		else if constexpr (std::is_same<T,__m128>{}) {
 			return _mm256_cvtpd_ps(dr);
@@ -447,10 +447,10 @@ namespace impl {
 
 		//2.: Return in the right form
 		if constexpr (std::is_same<T,__m128i>{}) {
-			if constexpr (round == PRECISE)
-				return _mm_cvtps_epi32(fr);
-			else if constexpr (round == TRUNCATE)
+			if constexpr (round == TRUNCATE)
 				return _mm_cvttps_epi32(fr);
+			else
+				return _mm_cvtps_epi32(fr);
 		}
 		else if constexpr (std::is_same<T,__m128>{}) {
 			return fr;
@@ -497,18 +497,20 @@ namespace impl {
 
 		//2.: Return in the right form
 		if constexpr (std::is_same<T,__m128i>{}) {
-			if constexpr (round == PRECISE)
-#ifdef AVX512
-				return _mm_cvtps_epu32(fr);
-#else
-				return _mm_cvtps_epi32(fr);
-#endif
-			else if constexpr (round == TRUNCATE)
+			if constexpr (round == TRUNCATE){
 #ifdef AVX512
 				return _mm_cvttps_epu32(fr);
 #else
 				return _mm_cvttps_epi32(fr);
 #endif
+			} else {
+#ifdef AVX512
+				return _mm_cvtps_epu32(fr);
+#else
+				return _mm_cvtps_epi32(fr);
+#endif
+			}
+
 		}
 		else if constexpr (std::is_same<T,__m128>{}) {
 			return fr;
