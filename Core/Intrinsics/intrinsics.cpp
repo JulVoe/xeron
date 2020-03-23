@@ -211,10 +211,6 @@ namespace impl {
 //--------------------------------------32bit->float conversion--------------------------------------//
 	//Note: There is no good way to piece together your own float like in 16bit->float
 	
-	
-//#ifdef AVX512
-//		return _mm_cvtepu32_ps(in);
-//#else		
 	//Converts two uint32_t[4](in) to float[4]
 	//Cuts of last binary digit + 0.75ULP
 	ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_fast_huge_1(__m128i in){	
@@ -295,7 +291,10 @@ namespace impl {
 	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<PRECISE , HUGE  >(in){ return _mm_cvt_u32x4_psx4_precise_huge (in); }
 #endif
 	
+
+//--------------------------------------float->32bit conversion--------------------------------------//	
 	//TODO: Import functions from link
+	//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
 	//http://stereopsis.com/sree/fpu2006.html
 //--------------------------------------Reciprocals with newton-iterations--------------------------------------//
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
