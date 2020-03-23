@@ -203,7 +203,7 @@ namespace impl {
 			c_float = _mm256_div_ps(a_float, b_float);
 		}
 		
-		if constexpr(typeid(T)==typeid(__m256))
+		if constexpr(std::is_same<T,__m256>{})
 			return c_float;
 
 		//4.: Convert back to epi32
@@ -285,7 +285,7 @@ namespace impl {
 			c_float = _mm256_div_ps(a_float, b_float);
 		}
 		
-		if constexpr(typeid(T)==typeid(__m256))
+		if constexpr(std::is_same<T,__m256>{})
 			return c_float;
 
 		//5.: Convert back to epi32
@@ -364,13 +364,13 @@ namespace impl {
 		}
 
 		//2.: Return in the right form
-		if constexpr (typeid(T) == typeid(__m128i)) {
+		if constexpr (std::is_same<T,__m128i>{}) {
 			if constexpr (round == TRUNCATE)
 				return _mm_cvttps_epi32(fr);
 			else
 				return _mm_cvtps_epi32(fr);
 		}
-		else if constexpr (typeid(T) == typeid(__m128)) {
+		else if constexpr (std::is_same<T,__m128>{}) {
 			return fr;
 		}
 		else {
@@ -391,16 +391,16 @@ namespace impl {
 		const __m256d dr = _mm256_div_pd(da, db);
 
 		//2.: Return in the right form
-		if constexpr (typeid(T) == typeid(__m128i)) {
+		if constexpr (std::is_same<T,__m128i>{}) {
 			if constexpr (round == PRECISE)
 				return _mm256_cvtpd_epi32(dr);
 			else if constexpr (round == TRUNCATE)
 				return _mm256_cvttpd_epi32(dr);
 		}
-		else if constexpr (typeid(T) == typeid(__m128)) {
+		else if constexpr (std::is_same<T,__m128>{}) {
 			return _mm256_cvtpd_ps(dr);
 		}
-		else if constexpr (typeid(T) == typeid(__m256d)){
+		else if constexpr (std::is_same<T,__m256d>{}){
 			return dr;
 		}
 		else {
@@ -446,13 +446,13 @@ namespace impl {
 		
 
 		//2.: Return in the right form
-		if constexpr (typeid(T) == typeid(__m128i)) {
+		if constexpr (std::is_same<T,__m128i>{}) {
 			if constexpr (round == PRECISE)
 				return _mm_cvtps_epi32(fr);
 			else if constexpr (round == TRUNCATE)
 				return _mm_cvttps_epi32(fr);
 		}
-		else if constexpr (typeid(T) == typeid(__m128)) {
+		else if constexpr (std::is_same<T,__m128>{}) {
 			return fr;
 		}
 		else {
@@ -496,7 +496,7 @@ namespace impl {
 		}
 
 		//2.: Return in the right form
-		if constexpr (typeid(T) == typeid(__m128i)) {
+		if constexpr (std::is_same<T,__m128i>{}) {
 			if constexpr (round == PRECISE)
 #ifdef AVX512
 				return _mm_cvtps_epu32(fr);
@@ -510,7 +510,7 @@ namespace impl {
 				return _mm_cvttps_epi32(fr);
 #endif
 		}
-		else if constexpr (typeid(T) == typeid(__m128)) {
+		else if constexpr (std::is_same<T,__m128>{}) {
 			return fr;
 		}
 		else {
