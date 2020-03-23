@@ -11,35 +11,37 @@ enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possib
 enum { SMALL = 0, BIG = 1 }; //BIG=input can be as big as possible, SMALL=input has to be <=2^24
 	
 namespace impl {
+//--------------------------------------16bit-32bit conversion--------------------------------------//	
 #if SSE >= 41
-	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
-	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Converts int16_t[8] (in) to two int32_t[4] (hi, lo)
+	//Partition: in = |hi|hi|hi|hi|lo|lo|lo|lo|
+	//Note: The shift+unpak could be replaced with unpack+convert as in https://stackoverflow.com/questions/16031149/speedup-a-short-to-float-cast
+	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_10(const __m128i in, __m128i& lo, __m128i& hi) {
 		const __m128i sign = _mm_srai_epi16(in, 16);
-		out2 = _mm_cvtepi16_epi32(in);
-		out1 = _mm_unpackhi_epi16(in, sign);
+		lo = _mm_cvtepi16_epi32(in);
+		hi = _mm_unpackhi_epi16(in, sign);
 	}
-	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Converts uint16_t[8] (in) to two uint32_t[4] (hi, lo)
+	//Partition: in = |hi|hi|hi|hi|lo|lo|lo|lo|
+	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& lo, __m128i& hi) {
 		const __m128i zero = _mm_setzero_si128();
-		out2 = _mm_cvtepu16_epi32(in);
-		out1 = _mm_unpackhi_epi16(in, zero);
+		lo = _mm_cvtepu16_epi32(in);
+		hi = _mm_unpackhi_epi16(in, zero);
 	}
 #else
-	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2)
-	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Converts int16_t[8] (in) to two int32_t[4] (hi, lo)
+	//Partition: in = |hi|hi|hi|hi|lo|lo|lo|lo|
+	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_10(const __m128i in, __m128i& lo, __m128i& hi) {
 		const __m128i sign = _mm_srai_epi16(in, 16);
-		out1 = _mm_unpackhi_epi16(in, sign);
-		out2 = _mm_unpacklo_epi16(in, sign);
+		hi = _mm_unpackhi_epi16(in, sign);
+		lo = _mm_unpacklo_epi16(in, sign);
 	}
-	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	//Partition: in = |out1|out1|out1|out1|out2|out2|out2|out2|
-	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Converts uint16_t[8] (in) to two uint32_t[4] (hi, lo)
+	//Partition: in = |hi|hi|hi|hi|lo|lo|lo|lo|
+	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_10(const __m128i in, __m128i& lo, __m128i& hi) {
 		const __m128i zero = _mm_setzero_si128();
-		out1 = _mm_unpackhi_epi16(in, zero);
-		out2 = _mm_unpacklo_epi16(in, zero);
+		hi = _mm_unpackhi_epi16(in, zero);
+		lo = _mm_unpacklo_epi16(in, zero);
 	}
 #endif
 	//Converts two int32_t[8] (in_lo, in_hi) to int16_t[8] using saturation
@@ -54,16 +56,16 @@ namespace impl {
 	}
 	
 	
-	//Converts int16_t[8] (in) to two int32_t[4] (out1, out2) 
-	//Partition: in = |out2|out1|out2|out1|out2|out1|out2|out1|
-	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_20(const __m128i in, __m128i& out1, __m128i& out2) {
-		out1 = _mm_srai_epi32(in, 16);
+	//Converts int16_t[8] (in) to two int32_t[4] (hi, lo) 
+	//Partition: in = |hi|lo|hi|lo|hi|lo|hi|lo|
+	ALWAYS_INLINE void _mm_cvt_i16x8_2i32x4_20(const __m128i in, __m128i& lo, __m128i& hi) {
+		hi = _mm_srai_epi32(in, 16);
 		const __m128i out2_tmp = _mm_slli_epi32(in, 16);
-		out2 = _mm_srai_epi32(out2_tmp, 16);
+		lo = _mm_srai_epi32(out2_tmp, 16);
 	}
 	//Converts uint16_t[8] (in) to two uint32_t[4] (out1, out2)
-	//Partition: in = |out2|out1|out2|out1|out2|out1|out2|out1|
-	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_20(const __m128i in, __m128i& out1, __m128i& out2) {
+	//Partition: in = |hi|lo|hi|lo|hi|lo|hi|lo|
+	ALWAYS_INLINE void _mm_cvt_u16x8_2u32x4_20(const __m128i in, __m128i& lo, __m128i& hi) {
 		out1 = _mm_srli_epi32(in, 16);
 		out2 = _mm_and_si128(in, _mm_set1_epi32(0xFF));
 	}
@@ -88,7 +90,7 @@ namespace impl {
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
 #else
-	    return _mm_shuffle_epi8(_mm_compress_epi32_10(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
+	    return _mm_shuffle_epi8(_mm_cvt_2i32x4_i16x8_1(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
 #endif
 	}
 	//Converts two uint32_t[4] (in_lo, in_hi) to uint16_t[8]
@@ -99,19 +101,19 @@ namespace impl {
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
 		return _mm_blend_epi16(in_lo, hi_epi32_shift, 0xAA);
 #else
-	    return _mm_shuffle_epi8(_mm_cvt_2u32x4_u16x8_10(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
+	    return _mm_shuffle_epi8(_mm_cvt_2u32x4_u16x8_1(in_lo,in_hi),_mm_setr_epi8(0,1,8,9,2,3,10,11,4,5,12,13,6,7,14,15));
 #endif
 	}
 	
 	//Converts int32_t[8] to int16_t[8] using saturation
 	ALWAYS_INLINE __m128i _mm256_cvt_i32x8_i16x8_10(__m256i in){
-		_mm_cvt_i16x8_2i32x4_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
+		_mm_cvt_i16x8_2i32x4_1(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
 	//Converts uint32_t[8] (in) to uint16_t[8] using saturation
 	//Note: If the highest bit of on element of in is set, the corresponding returned element will be 0
 	//	(see _mm_cvt_u16x8_2u32x4_10)
 	ALWAYS_INLINE __m128i _mm256_cvt_u32x8_u16x8_10(__m256i in){
-		_mm_cvt_u16x8_2u32x4_10(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
+		_mm_cvt_u16x8_2u32x4_1(_mm256_extractf128_si256(in, 0), _mm256_extractf128_si256(in, 1))
 	}
 	//Converts int16_t[8] to int32_t[8]
 	ALWAYS_INLINE __m256i _mm256_cvt_i16x8_i32x8_10(__m128i in){
@@ -136,7 +138,77 @@ namespace impl {
     		return out;
 	}
 #endif
+//--------------------------------------16bit->float conversion--------------------------------------//
+	//Converts int16_t[8](in) to two float[4](lo, hi)
+	//It first converts to two int32_t[4] and then to float
+	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_10(__m128i in, __m128& lo, __m128& hi){
+		//1.: Convert to epi32
+		__m128i lo32, hi32;
+		_mm_cvti16x8_2i32x4(in, lo32, hi32);
+		
+		//2.: Convert to float
+		lo = _mm_cvtepi32_ps(lo32);
+		hi = _mm_cvtepi32_ps(hi32);
+	}
+	//Converts two float[4](lo, hi) to int16_t[8]
+	//First converts to two int32_t[4] using the specified rounding mode and then to int16_t
+	template<int round = PRECISE>
+	ALWAYS_INLINE __m128i _mm_cvt_2psx4_i16x8_10(__m128 lo, __m128 hi){
+		//0.: Check template parameters
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_2psx4_i16x8_10 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		
+		//1.: Convert to epi32
+		__m128i hi_epi32, lo_epi32;
+		if constexpr(round==TRUNCATE){
+			hi_epi32 = _mm_cvttps_epi32(hi);
+			lo_epi32 = _mm_cvttps_epi32(lo);
+		} else {
+			hi_epi32 = _mm_cvtps_epi32(hi);
+			lo_epi32 = _mm_cvtps_epi32(lo);
+		}
+		
+		//2.: Convert to epi16
+		return _mm_cvt2i32x4_i16x8(lo, hi);
+	}
+	
+	//Converts int16_t[8](in) to two float[4](lo, hi)
+	//It does not really use an intermediate int32_t representation but rather two hacky magic numbers. It uses the pattern of _mm_cvt2i32x4_i16x8_1
+	//Note: Correctness has to be verified
+	//Note: From https://stackoverflow.com/questions/9161807/sse-convert-short-integer-to-float
+	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_20(__m128i in, __m128& lo, __m128& hi){
+		//0.: Prepare magic constants
+		const __m128i magicInt = _mm_set1_epi16(0x4B00);
+		const __m128 magicFloat = _mm_set1_ps(8388608.0f);
 
+		//1.: Widen to 32bit
+		__m128i in_lo = _mm_unpacklo_epi16(in, magicInt);
+		__m128i in_hi = _mm_unpackhi_epi16(in, magicInt);
+		
+		//2.: "Convert" to float
+		lo = _mm_sub_ps(_mm_castsi128_ps(in_lo), magicFloat);
+		hi = _mm_sub_ps(_mm_castsi128_ps(in_hi), magicFloat);
+	}
+	//Converts two float[4](lo, hi) to int16_t[8]
+	//As _mm_cvt_2psx4_i16x8_10 but has to use _mm_cvt2i32x4_i16x8_1, because its widening pattern was used
+	template<int round = PRECISE>
+	ALWAYS_INLINE __m128i _mm_cvt_2psx4_i16x8_20(__m128 lo, __m128 hi){
+		//0.: Check template parameters
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_2psx4_i16x8_20 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		
+		//1.: Convert to epi32
+		__m128i hi_epi32, lo_epi32;
+		if constexpr(round==TRUNCATE){
+			hi_epi32 = _mm_cvttps_epi32(hi);
+			lo_epi32 = _mm_cvttps_epi32(lo);
+		} else {
+			hi_epi32 = _mm_cvtps_epi32(hi);
+			lo_epi32 = _mm_cvtps_epi32(lo);
+		}
+		
+		//2.: Convert to epi16
+		return _mm_cvt2i32x4_i16x8_1(lo, hi);	
+	}
+//--------------------------------------Reciprocals with newton-iterations--------------------------------------//
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
 	//Approximates the inverse of float[4] (in) using intrinsic and n passes of newton iterations
 	template<unsigned n>
@@ -219,21 +291,15 @@ namespace impl {
 		return _mm256_cvt_i32x8_i16x8(c_epi32);
 
 #else		
-		//1.: Convert to epi32
-		__m128i a_hi_epi32;
-		__m128i a_lo_epi32;
-		__m128i b_hi_epi32;
-		__m128i b_lo_epi32;
-		_mm_cvt_i16x8_2i32x4(a_epi16, a_hi_epi32, a_lo_epi32);
-		_mm_cvt_i16x8_2i32x4(b_epi16, b_hi_epi32, b_lo_epi32);
+		//1.: Convert to float
+		__m128 a_lo;
+		__m128 a_hi;
+		__m128 b_lo;
+		__m128 b_hi;
+		_mm_cvt_i16x8_2psx4(a_epi16, a_lo, a_hi);
+		_mm_cvt_i16x8_2psx4(b_epi16, b_lo, b_hi);
 
-		//2.: Convert to float
-		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
-		const __m128 a_lo = _mm_cvtepi32_ps(a_lo_epi32);
-		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
-		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
-
-		//3.: Perform the actual computation
+		//2.: Perform the actual computation
 		__m128 hi, lo;
 		if constexpr(use_rcp){
 			const __m128 b_hi_rcp = _mm_rcp_ps<round!=FAST>(b_hi); //Calculate reciprocal (b_hi_rcp = 1/b_hi)
@@ -246,18 +312,8 @@ namespace impl {
 			lo = _mm_div_ps(a_lo, b_lo);
 		}
 
-		//4.: Convert back to epi32
-		__m128i hi_epi32, lo_epi32;
-		if constexpr(round==TRUNCATE){
-			hi_epi32 = _mm_cvttps_epi32(hi);
-			lo_epi32 = _mm_cvttps_epi32(lo);
-		} else {
-			hi_epi32 = _mm_cvtps_epi32(hi);
-			lo_epi32 = _mm_cvtps_epi32(lo);
-		}
-
-		//5.: Convert back to epi16
-		return _mm_cvt_2i32x4_i16x8(lo_epi32, hi_epi32);
+		//3.: Convert back to epi16
+		return _mm_cvt_2psx4_i16x8(lo, hi);
 #endif
 	}
 	//Divides a_epu16 by b_epu16 elementwise. If AVX2 is available, it can also return the result as floats.
@@ -300,21 +356,15 @@ namespace impl {
 		//6.: Convert back to epu16
 		return _mm256_cvt_u32x8_u16x8(c_epi32);
 #else		
-		//1.: Convert to epi32
-		__m128i a_hi_epi32;
-		__m128i a_lo_epi32;
-		__m128i b_hi_epi32;
-		__m128i b_lo_epi32;
-		_mm_cvt_u16x8_2u32x4(a_epu16, a_hi_epi32, a_lo_epi32);
-		_mm_cvt_u16x8_2u32x4(b_epu16, b_hi_epi32, b_lo_epi32);
+		//1.: Convert to float
+		__m128 a_lo;
+		__m128 a_hi;
+		__m128 b_lo;
+		__m128 b_hi;
+		_mm_cvt_u16x8_2psx4(a_epu16, a_lo, a_hi);
+		_mm_cvt_u16x8_2psx4(b_epu16, b_lo, b_hi);
 
-		//2.: Convert to float
-		const __m128 a_hi = _mm_cvtepi32_ps(a_hi_epi32);
-		const __m128 a_lo = _mm_cvtepi32_ps(a_lo_epi32);
-		const __m128 b_hi = _mm_cvtepi32_ps(b_hi_epi32);
-		const __m128 b_lo = _mm_cvtepi32_ps(b_lo_epi32);
-
-		//3.: Perform the actual computation
+		//2.: Perform the actual computation
 		__m128 hi, lo;
 		if constexpr(use_rcp){
 			const __m128 b_hi_rcp = _mm_rcp_ps<round!=FAST>(b_hi); //Calculate reciprocal (b_hi_rcp = 1/b_hi)
@@ -327,18 +377,8 @@ namespace impl {
 			const __m128 lo = _mm_div_ps(a_lo, b_lo);
 		}
 
-		//4.: Convert back to epi32
-		__m128i hi_epi32, lo_epi32;
-		if constexpr(round==TRUNCATE){
-			hi_epi32 = _mm_cvttps_epi32(hi);
-			lo_epi32 = _mm_cvttps_epi32(lo);
-		} else {
-			hi_epi32 = _mm_cvtps_epi32(hi);
-			lo_epi32 = _mm_cvtps_epi32(lo);
-		}
-
-		//5.: Convert back to epu16
-		return _mm_cvt_2u32x4_u16x8(lo_epi32, hi_epi32);
+		//3.: Convert back to epu16
+		return _mm_cvt_2psx4_u16x8(lo, hi);
 #endif
 	}
 //--------------------------------------_mm_div_epi32--------------------------------------//
@@ -1331,7 +1371,11 @@ public:
 
 /*************************************************************************
  *                     Makros                                            *
- * - _mm_cvt_[i,u]16x8_2[i,u]32x4_10 and _mm_cvt_[i,u]32x4_2[i,u]16x8_10 * _10, _20, _21 | SSE4.1-support & speed (benchmark together, roundtrip)
+ * - _mm_cvt_[i,u]16x8_2[i,u]32x4_1                                      * _10 | Speed
+ * - _mm_cvt_[i,u]16x8_2[i,u]32x4_2                                      * _20,_21 | Speed
+ * - _mm_cvt_[i,u]16x8_2[i,u]32x4 and _mm_cvt_[i,u]32x4_2[i,u]16x8       * _1, _2 | SSE4.1-support & speed (benchmark together, roundtrip)
+ * - _mm256_cvt_[i,u]32x8_[i,u]16x8 and _mm256_cvt_[i,u]16x8_[i,u]32x8   * _10 | Roundtrip Speed
+ * - _mm_cvt_[i,u]16x8_2psx4 and _mm_cvt_2psx4_[i,u]16x8                 * _10, _20 | Correctness & Roundtrip speed
  * - USE_RCP                                                             * true, false for _mm_div_epi16_impl | Has to be correct & speed
  * - _mm_idiv_epi32_precise_int                                          * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & correct & speed (<PRECISE, __m128i>)
  * - _mm_idiv_epi32_precise_float                                        * _mm_idiv_epi32_avx,_mm_idiv_epi32_split | AVX-support & correct & speed (<PRECISE, __m128>)
