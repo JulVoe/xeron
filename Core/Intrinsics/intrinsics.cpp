@@ -139,6 +139,8 @@ namespace impl {
 	}
 #endif
 //--------------------------------------16bit<->float conversion--------------------------------------//
+	//TODO:Mask would work
+	
 	//Converts int16_t[8](in) to two float[4](lo, hi)
 	//It first converts to two int32_t[4] and then to float
 	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_10(__m128i in, __m128& lo, __m128& hi){
@@ -1459,6 +1461,74 @@ public:
 
 //https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
 
+
+#if 0
+union UFloatInt {
+ int i;
+ float f;
+};
+
+//http://stereopsis.com/FPU.html
+int FloatTo23Bits(float x)//0<=x<2^23
+{
+    UFloatInt fi = {.f=x};
+    fi.f += (float)(1<<23);
+    return fi.i & 0x7FFFFF;	// last 23 bits
+}
+//https://stackoverflow.com/questions/78619/what-is-the-fastest-way-to-convert-float-to-int-on-x86
+int toInt(float x)//-2^22<x<2^22
+{
+    UFloatInt fi = {.f=x};
+    fi.f += (float)(3<<22);
+    return ( (fi.i)&0x007fffff ) - 0x00400000;
+}
+//http://stereopsis.com/FPU.html
+int FastFtol1(float x)
+{
+    int    b;
+    __asm__ (
+        "flds %1        \n\t"
+        "fistpl %0      \n\t"
+        : "=m" (b)
+        : "m" (x));
+    return b;
+}
+//https://stackoverflow.com/questions/78619/what-is-the-fastest-way-to-convert-float-to-int-on-x86
+int FastFtol2(float x)
+{
+    int    b;
+    __asm__ (
+        "flds %1        \n\t"
+        "fisttpl %0      \n\t"
+        : "=m" (b)
+        : "m" (x));
+    return b;
+}
+//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
+int doule2int1( double d )
+{
+   union Cast
+   {
+      double d;
+      long l;
+    };
+   volatile Cast c;
+   c.d = d + 6755399441055744.0;
+   return c.l;
+}
+//http://stereopsis.com/FPU.html
+int doule2int2( double d )
+{
+   union Cast
+   {
+      double d;
+      long l;
+    };
+   volatile Cast c;
+   c.d = d + 6755399441055744.0;
+   return c.l>>16;
+}
+#endif
 
 /*************************************************************************
  *                     Makros                                            *
