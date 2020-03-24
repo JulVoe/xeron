@@ -138,7 +138,7 @@ namespace impl {
     		return out;
 	}
 #endif
-//--------------------------------------16bit->float conversion--------------------------------------//
+//--------------------------------------16bit<->float conversion--------------------------------------//
 	//Converts int16_t[8](in) to two float[4](lo, hi)
 	//It first converts to two int32_t[4] and then to float
 	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_10(__m128i in, __m128& lo, __m128& hi){
