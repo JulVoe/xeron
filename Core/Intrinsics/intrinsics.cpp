@@ -292,7 +292,7 @@ namespace impl {
 #endif
 	
 
-//--------------------------------------float->32bit conversion--------------------------------------//	
+//--------------------------------------double->32bit conversion--------------------------------------//	
 	//TODO: Import functions from link
 	//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
 	//http://stereopsis.com/sree/fpu2006.html
