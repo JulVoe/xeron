@@ -8,7 +8,7 @@ namespace intrin {
 	
 //Integer division. Don't mess with the values or error messages will be wrong
 enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possible, FAST=allows functions to sacrifice some precision for speed, TRUNCATE=same behaviour as sisd integer division.
-enum { SMALL = 0, MEDIUM = 1, BIG = 2, HUGE = 3 }; //HUGE=as big as possible, <2^32-1, Mdeium:<2^31: SMALL:<2^23
+enum { SMALL = 0, MEDIUM = 1, BIG = 2, HUGE = 3 }; //HUGE=as big as possible, BIG:32bit, aber nicht UINT_MAX, Medium:31bit, SMALL:23bit
 	
 namespace impl {
 //--------------------------------------16bit-32bit conversion--------------------------------------//	
@@ -138,9 +138,7 @@ namespace impl {
     		return out;
 	}
 #endif
-//--------------------------------------16bit<->float conversion--------------------------------------//
-	//TODO:Mask would work
-	
+//--------------------------------------int16_t-float conversion--------------------------------------//	
 	//Converts int16_t[8](in) to two float[4](lo, hi)
 	//It first converts to two int32_t[4] and then to float
 	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_10(__m128i in, __m128& lo, __m128& hi){
@@ -149,8 +147,8 @@ namespace impl {
 		_mm_cvti16x8_2i32x4(in, lo32, hi32);
 		
 		//2.: Convert to float
-		lo = _mm_cvtepi32_ps(lo32);
-		hi = _mm_cvtepi32_ps(hi32);
+		lo = _mm_cvtepi32_ps<SMALL>(lo32); //TODO
+		hi = _mm_cvtepi32_ps<SMALL>(hi32); //TODO
 	}
 	//Converts two float[4](lo, hi) to int16_t[8]
 	//First converts to two int32_t[4] using the specified rounding mode and then to int16_t
@@ -162,22 +160,56 @@ namespace impl {
 		//1.: Convert to epi32
 		__m128i hi_epi32, lo_epi32;
 		if constexpr(round==TRUNCATE){
-			hi_epi32 = _mm_cvttps_epi32(hi);
-			lo_epi32 = _mm_cvttps_epi32(lo);
+			lo_epi32 = _mm_cvttps_epi32<SMALL>(lo); //TODO
+			hi_epi32 = _mm_cvttps_epi32<SMALL>(hi); //TODO
 		} else {
-			hi_epi32 = _mm_cvtps_epi32(hi);
-			lo_epi32 = _mm_cvtps_epi32(lo);
+			lo_epi32 = _mm_cvtps_epi32<SMALL>(lo); //TODO
+			hi_epi32 = _mm_cvtps_epi32<SMALL>(hi); //TODO
 		}
 		
 		//2.: Convert to epi16
-		return _mm_cvt2i32x4_i16x8(lo, hi);
+		return _mm_cvt2i32x4_i16x8(lo_epi32, hi_epi32);
+	}
+//--------------------------------------uint16_t-float conversion--------------------------------------//
+	//Converts uint16_t[8](in) to two float[4](lo, hi)
+	//It first converts to two uint32_t[4] and then to float
+	ALWAYS_INLINE void _mm_cvt_u16x8_2psx4_10(__m128i in, __m128& lo, __m128& hi){
+		//1.: Convert to epu32
+		__m128i lo32, hi32;
+		_mm_cvtu16x8_2u32x4(in, lo32, hi32);
+		
+		//2.: Convert to float
+		lo = _mm_cvtepu32_ps<SMALL>(lo32); //TODO
+		hi = _mm_cvtepu32_ps<SMALL>(hi32); //TODO
+	}
+	//Converts two float[4](lo, hi) to uint16_t[8]
+	//First converts to two uint32_t[4] using the specified rounding mode and then to uint16_t
+	template<int round = PRECISE>
+	ALWAYS_INLINE __m128i _mm_cvt_2psx4_u16x8_10(__m128 lo, __m128 hi){
+		//0.: Check template parameters
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_2psx4_u16x8_10 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		
+		//1.: Convert to epu32
+		__m128i hi_epu32, lo_epu32;
+		if constexpr(round==TRUNCATE){
+			lo_epu32 = _mm_cvttps_epu32<SMALL>(lo); //TODO
+			hi_epu32 = _mm_cvttps_epu32<SMALL>(hi); //TODO
+		} else {
+			lo_epu32 = _mm_cvtps_epu32<SMALL>(lo); //TODO
+			hi_epu32 = _mm_cvtps_epu32<SMALL>(hi); //TODO
+		}
+		
+		//2.: Convert to epu16
+		return _mm_cvt2u32x4_u16x8(lo_epu32, hi_epu32);
 	}
 	
-	//Converts int16_t[8](in) to two float[4](lo, hi)
-	//It does not really use an intermediate int32_t representation but rather two hacky magic numbers. It uses the pattern of _mm_cvt2i32x4_i16x8_1
+	//Note: From now on: Hacking together floats :)
+	
+	//Converts uint16_t[8](in) to two float[4](lo, hi)
+	//It does not really use an intermediate uint32_t representation but rather two hacky magic numbers. It uses the pattern of _mm_cvt2u32x4_u16x8_1
 	//Note: Correctness has to be verified
 	//Note: From https://stackoverflow.com/questions/9161807/sse-convert-short-integer-to-float
-	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_20(__m128i in, __m128& lo, __m128& hi){
+	ALWAYS_INLINE void _mm_cvt_u16x8_2psx4_20(__m128i in, __m128& lo, __m128& hi){
 		//0.: Prepare magic constants
 		const __m128i magicInt = _mm_set1_epi16(0x4B00); //Exponent of 23+127
 		const __m128 magicFloat = _mm_set1_ps(8388608.0f); //2^23
@@ -190,93 +222,138 @@ namespace impl {
 		lo = _mm_sub_ps(_mm_castsi128_ps(in_lo), magicFloat);
 		hi = _mm_sub_ps(_mm_castsi128_ps(in_hi), magicFloat);
 	}
-	//Converts two float[4](lo, hi) to int16_t[8]
-	//As _mm_cvt_2psx4_i16x8_10 but has to use _mm_cvt2i32x4_i16x8_1, because its widening pattern was used
+	//Converts two float[4](lo, hi) to uint16_t[8]
+	//As _mm_cvt_2psx4_u16x8_10 but has to use _mm_cvt2u32x4_u16x8_1, because its widening pattern was used
 	template<int round = PRECISE>
-	ALWAYS_INLINE __m128i _mm_cvt_2psx4_i16x8_20(__m128 lo, __m128 hi){
+	ALWAYS_INLINE __m128i _mm_cvt_2psx4_u16x8_20(__m128 lo, __m128 hi){
 		//0.: Check template parameters
-		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_2psx4_i16x8_20 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_2psx4_u16x8_20 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
 		
 		//1.: Convert to epi32
-		__m128i hi_epi32, lo_epi32;
+		__m128i hi_epu32, lo_epu32;
 		if constexpr(round==TRUNCATE){
-			hi_epi32 = _mm_cvttps_epi32(hi);
-			lo_epi32 = _mm_cvttps_epi32(lo);
+			hi_epi32 = _mm_cvttps_epu32<SMALL>(hi); //TODO
+			lo_epi32 = _mm_cvttps_epu32<SMALL>(lo); //TODO
 		} else {
-			hi_epi32 = _mm_cvtps_epi32(hi);
-			lo_epi32 = _mm_cvtps_epi32(lo);
+			hi_epi32 = _mm_cvtps_epu32<SMALL>(hi); //TODO
+			lo_epi32 = _mm_cvtps_epu32<SMALL>(lo); //TODO
 		}
 		
-		//2.: Convert to epi16
-		return _mm_cvt2i32x4_i16x8_1(lo, hi);	
-	}	
-//--------------------------------------32bit->float conversion--------------------------------------//
+		//2.: Convert to epu16
+		return _mm_cvt2u32x4_u16x8_1(lo, hi);	
+	}
+//--------------------------------------int32_t->float conversion--------------------------------------//
+	//There is no good way to hack together your own float because of the sign bit. It would require
+	// 1 unpack with 0 & 2 shifts to get sign bit in place & 1 add instead of the 1 unpack
+	
+	//Converts int32_t[4](v) to float[4]
+	ALWAYS_INLINE __m128 _mm_cvt_i32x4_psx4_1(const __m128i in)
+	{		
+   	 	return _mm_cvtepi32_ps(in);
+	}
+//--------------------------------------float->int32_t conversion--------------------------------------//
+	//Converts float[4](in) to int32_t[4]
+	template<int round = PRECISE>
+	ALWAYS_INLINE __m128i _mm_cvt_psx4_i32x4_1(const __m128 in)
+	{	
+		//0.: Check template parameters
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_psx4_i32x4_1 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		
+		//1.: Convert
+		if constexpr(round == TRUNCATE)
+   	 		return _mm_cvttps_epi32(in);
+		else
+   	 		return _mm_cvtps_epi32(in);
+	}
+	
+#if 0	
+	//Converts float[4](in) to int32_t[4]
+	//https://stackoverflow.com/questions/78619/what-is-the-fastest-way-to-convert-float-to-int-on-x86
+	//Note: Slow as shit
+	ALWAYS_INLINE __m128i _mm_cvt_psx4_i32x4_precise_small_1(const __m128 in){
+		//1.: Set constants
+		const __m128  m1 = _mm_set1_ps   ((3<<22));
+    		const __m128i m2 = _mm_set1_epi32((1<<23)-1);
+    		const __m128  m3 = _mm_set1_ps   ((1<<22));
+    	
+		//2.: Conversion to epi32
+		__m128i lo_epi32 = _mm_sub_epi32(_mm_and_si128(_mm_castps_si128(_mm_add_ps(in,m1)), m2), m3);
+	}
+#endif	
+//--------------------------------------uint32_t->float conversion--------------------------------------//
 	//Note: There is no good way to piece together your own float like in 16bit->float
 	
-	//Converts two uint32_t[4](in) to float[4]
+	//Converts uint32_t[4](in) to float[4]
 	//Cuts of last binary digit + 0.75ULP
 	ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_fast_huge_1(__m128i in){	
 		const __m128 half = _mm_cvtepi32_ps(_mm_srl_epi32(in,1));
 		return _mm_add_ps(half, half);
 	}
-	//Converts two uint32_t[4](in) to float[4]
+	//Converts uint32_t[4](in) to float[4]
 	//0.5ULP
 	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
 	ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_precise_huge_1(__m128i in){
-    		const __m128i msk_lo     = _mm_set1_epi32(0xFFFF);
+    		//0.: Constants
+		const __m128i msk_lo     = _mm_set1_epi32(0xFFFF);
    		const __m128  cnst65536f = _mm_set1_ps(65536.0f);
 
-    		__m128i v_lo      = _mm_and_si128(in,msk_lo);
-   		__m128i v_hi      = _mm_srli_epi32(in,16);
-    		__m128  v_lo_flt  = _mm_cvtepi32_ps(v_lo); 
+		//1.: Convert
+    		const __m128i v_lo      = _mm_and_si128(in,msk_lo);
+   		const __m128i v_hi      = _mm_srli_epi32(in,16);
+    		const __m128  v_lo_flt  = _mm_cvtepi32_ps(v_lo); 
     		__m128  v_hi_flt  = _mm_cvtepi32_ps(v_hi);
             	v_hi_flt          = _mm_mul_ps(cnst65536f,v_hi_flt);
     		return _mm_add_ps(v_hi_flt,v_lo_flt);
 	}
-	//Converts two uint32_t[4](v) to float[4]
+	//Converts uint32_t[4](v) to float[4]
 	//0.75ULP
 	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
 	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_big_1(const __m128i v)
 	{	
-   	 	__m128i v2 = _mm_srli_epi32(v, 1);     // v2 = v / 2
-   		__m128i v1 = _mm_sub_epi32(v, v2);     // v1 = v - (v / 2)
-    		__m128 v2f = _mm_cvtepi32_ps(v2);
-   		__m128 v1f = _mm_cvtepi32_ps(v1);
+   	 	const __m128i v2 = _mm_srli_epi32(v, 1);     // v2 = v / 2
+   		const __m128i v1 = _mm_sub_epi32(v, v2);     // v1 = v - (v / 2)
+    		const __m128 v2f = _mm_cvtepi32_ps(v2);
+   		const __m128 v1f = _mm_cvtepi32_ps(v1);
    		return _mm_add_ps(v2f, v1f); 
 	}
-	//Converts two uint32_t[4](v) to float[4]
+	//Converts uint32_t[4](v) to float[4]
 	//0.75ULP
 	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
 	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_huge_1(const __m128i v)
 	{	
-		__m128i v2 = _mm_srli_epi32(v, 1);                 // v2 = v / 2
-    		__m128i v1 = _mm_and_si128(v, _mm_set1_epi32(1));  // v1 = v & 1
-    		__m128 v2f = _mm_cvtepi32_ps(v2);
-    		__m128 v1f = _mm_cvtepi32_ps(v1);
+		const __m128i v2 = _mm_srli_epi32(v, 1);                 // v2 = v / 2
+    		const __m128i v1 = _mm_and_si128(v, _mm_set1_epi32(1));  // v1 = v & 1
+    		const __m128 v2f = _mm_cvtepi32_ps(v2);
+    		const __m128 v1f = _mm_cvtepi32_ps(v1);
     		return _mm_add_ps(_mm_add_ps(v2f, v2f), v1f);      // return 2 * v2 + v1
 	}
-	//Converts two uint32_t[4](v) to float[4]
+	//Converts uint32_t[4](v) to float[4]
 	//0.75ULP
 	//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
 	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_huge_2(const __m128i v)
 	{		
-		__m128i msk0=_mm_set1_epi32(0x7FFFFFFF);
-		__m128i cnst2_31=_mm_set1_epi32(0x4F000000);
+		//0.: Constants
+		const __m128i msk0=_mm_set1_epi32(0x7FFFFFFF);
+		const __m128i cnst2_31=_mm_set1_epi32(0x4F000000);
 
-		__m128i msk1=_mm_srai_epi32(v,31);
-		__m128i v_low=_mm_and_si128(msk0,v);
-		__m128  v_lowf=_mm_cvtepi32_ps(v_low);
-		__m128  v_highf=_mm_castsi128_ps(_mm_and_si128(msk1,cnst2_31));  
-		__m128  v_sum=_mm_add_ps(v_lowf,v_highf);
+		//1.: Convert
+		const __m128i msk1=_mm_srai_epi32(v,31);
+		const __m128i v_low=_mm_and_si128(msk0,v);
+		const __m128  v_lowf=_mm_cvtepi32_ps(v_low);
+		const __m128  v_highf=_mm_castsi128_ps(_mm_and_si128(msk1,cnst2_31));  
+		const __m128  v_sum=_mm_add_ps(v_lowf,v_highf);
 		return v_sum;
-	}
+	}	
 	
 	template<int round=TRUNCATE, int size=HUGE>
 	ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4(__m128i in){
 		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_u32x4_psx4 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
 		static_assert(size == SMALL || size == MEDIUM || size == BIG  || size == HUGE, "_mm_cvt_u32x4_psx4 only supports size SMALL(0), MEDIUM(1), BIG(2) or HUGE(3)!");
-		
+#ifdef AVX512		
 		return _mm_cvtepu32_ps(in);
+#else
+		UNREACHABLE();
+#endif		
 	}
 #ifndef AVX512
 	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST    , SMALL >(in){ return _mm_cvt_u32x4_psx4_fast_huge    (in); }
@@ -292,8 +369,42 @@ namespace impl {
 	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<PRECISE , BIG   >(in){ return _mm_cvt_u32x4_psx4_precise_huge (in); }
 	ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<PRECISE , HUGE  >(in){ return _mm_cvt_u32x4_psx4_precise_huge (in); }
 #endif
-//--------------------------------------float->32bit conversion--------------------------------------//	
-
+//--------------------------------------float->uint32_t conversion--------------------------------------//	
+	//Converts float[4](in) to uint32_t[4]
+	//http://stereopsis.com/FPU.html
+	//https://stackoverflow.com/questions/78619/what-is-the-fastest-way-to-convert-float-to-int-on-x86	
+	ALWAYS_INLINE __m128i _mm_cvt_psx4_u32x4_precise_small_1(__m128 in){
+    		//0.: Constants
+		const __m128  m1 = _mm_set1_ps((1<<23));
+    		const __m128i m2 = _mm_set1_epi32((1<<23)-1);
+    		
+		//1.: Convert
+		const __m128 in_floored = _mm_add_ps(a,m1);
+		return _mm_and_si128(_mm_castps_si128(in_floored), m2);
+	}
+	
+	template<int round = FAST>
+	ALWAYS_INLINE __m128i _mm_cvt_psx4_u32x4_medium_1(__m128 in){
+		//0.: Check template parameters
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_psx4_u32x4_medium has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		
+		//1.: Convert
+		if constexpr(round==TRUNCATE)
+			return _mm_cvtps_epi32(in);
+		else
+			return _mm_cvttps_epi32(in);
+	}
+	
+	//Always rounds to even, does not work if float is denormalised :(
+	ALWAYS_INLINE __m128i _mm_cvt_psx4_u32x4_fast_huge(__m128 in){
+		//0.: Set up constants
+		const __m128i div2 = _mm_set1_epi32(1<<23); //Subtract one from exponent of float
+		
+		__m128 in_half	= _mm_castsi128_ps(_mm_sub_epi32(_mm_castps_si128(in), div2));
+		__m128i in_half_epu32 = _mm_cvt_psx4_u32x4_medium<FAST>(in_half);
+		return _mm_sll_epi32(in_half_epu32,1);
+	}
+	//TODO: Safe version through div, precise version.
 //--------------------------------------double->32bit conversion--------------------------------------//	
 	//TODO: Import functions from link
 	//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
@@ -1460,75 +1571,7 @@ public:
 #undef __RCPt
 
 //https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
-
-
-#if 0
-union UFloatInt {
- int i;
- float f;
-};
-
-//http://stereopsis.com/FPU.html
-int FloatTo23Bits(float x)//0<=x<2^23
-{
-    UFloatInt fi = {.f=x};
-    fi.f += (float)(1<<23);
-    return fi.i & 0x7FFFFF;	// last 23 bits
-}
-//https://stackoverflow.com/questions/78619/what-is-the-fastest-way-to-convert-float-to-int-on-x86
-int toInt(float x)//-2^22<x<2^22
-{
-    UFloatInt fi = {.f=x};
-    fi.f += (float)(3<<22);
-    return ( (fi.i)&0x007fffff ) - 0x00400000;
-}
-//http://stereopsis.com/FPU.html
-int FastFtol1(float x)
-{
-    int    b;
-    __asm__ (
-        "flds %1        \n\t"
-        "fistpl %0      \n\t"
-        : "=m" (b)
-        : "m" (x));
-    return b;
-}
-//https://stackoverflow.com/questions/78619/what-is-the-fastest-way-to-convert-float-to-int-on-x86
-int FastFtol2(float x)
-{
-    int    b;
-    __asm__ (
-        "flds %1        \n\t"
-        "fisttpl %0      \n\t"
-        : "=m" (b)
-        : "m" (x));
-    return b;
-}
-//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
-int doule2int1( double d )
-{
-   union Cast
-   {
-      double d;
-      long l;
-    };
-   volatile Cast c;
-   c.d = d + 6755399441055744.0;
-   return c.l;
-}
-//http://stereopsis.com/FPU.html
-int doule2int2( double d )
-{
-   union Cast
-   {
-      double d;
-      long l;
-    };
-   volatile Cast c;
-   c.d = d + 6755399441055744.0;
-   return c.l>>16;
-}
-#endif
+//TODO: https://www.flipcode.com/archives/floattoint.txt
 
 /*************************************************************************
  *                     Makros                                            *
@@ -1536,7 +1579,9 @@ int doule2int2( double d )
  * - _mm_cvt_[i,u]16x8_2[i,u]32x4_2                                      * _20,_21 | Speed
  * - _mm_cvt_[i,u]16x8_2[i,u]32x4 and _mm_cvt_[i,u]32x4_2[i,u]16x8       * _1, _2 | SSE4.1-support & speed (benchmark together, roundtrip)
  * - _mm256_cvt_[i,u]32x8_[i,u]16x8 and _mm256_cvt_[i,u]16x8_[i,u]32x8   * _10 | Roundtrip Speed
- * - _mm_cvt_[i,u]16x8_2psx4 and _mm_cvt_2psx4_[i,u]16x8                 * _10, _20 | Correctness & Roundtrip speed
+ * - _mm_cvt_i16x8_2psx4 and _mm_cvt_2psx4_i16x8                         * _10 | Correctness & Roundtrip speed
+ * - _mm_cvt_u16x8_2psx4 and _mm_cvt_2psx4_u16x8                         * _10, _20 | Correctness & Roundtrip speed
+ * - _mm_cvt_i32x4_psx4                                                  * _1 | Speed
  * - _mm_cvt_u32x4_psx4_fast_huge                                        * _1 | Speed
  * - _mm_cvt_u32x4_psx4_truncate_big                                     * _1 | Speed 
  * - _mm_cvt_u32x4_psx4_truncate_huge                                    * _1,_2 |Speed
