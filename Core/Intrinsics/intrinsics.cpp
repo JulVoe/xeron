@@ -138,7 +138,9 @@ namespace impl {
     		return out;
 	}
 #endif
-//--------------------------------------int16_t-float conversion--------------------------------------//	
+//--------------------------------------int16_t-float conversion--------------------------------------//
+	//No hack floats because of sign bit, TODO
+	
 	//Converts int16_t[8](in) to two float[4](lo, hi)
 	//It first converts to two int32_t[4] and then to float
 	ALWAYS_INLINE void _mm_cvt_i16x8_2psx4_10(__m128i in, __m128& lo, __m128& hi){
@@ -251,6 +253,8 @@ namespace impl {
 	{		
    	 	return _mm_cvtepi32_ps(in);
 	}
+	
+	//16bits: Maybe also use _mm_cvt_i16x8_psx4
 //--------------------------------------float->int32_t conversion--------------------------------------//
 	//Converts float[4](in) to int32_t[4]
 	template<int round = PRECISE>
@@ -382,7 +386,7 @@ namespace impl {
 		const __m128 in_floored = _mm_add_ps(a,m1);
 		return _mm_and_si128(_mm_castps_si128(in_floored), m2);
 	}
-	
+	//Converts float[4](in) to uint32_t[4]
 	template<int round = FAST>
 	ALWAYS_INLINE __m128i _mm_cvt_psx4_u32x4_medium_1(__m128 in){
 		//0.: Check template parameters
@@ -394,21 +398,74 @@ namespace impl {
 		else
 			return _mm_cvttps_epi32(in);
 	}
-	
-	//Always rounds to even, does not work if float is denormalised :(
+	//Converts float[4](in) to uint32_t[4]
 	ALWAYS_INLINE __m128i _mm_cvt_psx4_u32x4_fast_huge(__m128 in){
 		//0.: Set up constants
 		const __m128i div2 = _mm_set1_epi32(1<<23); //Subtract one from exponent of float
 		
 		__m128 in_half	= _mm_castsi128_ps(_mm_sub_epi32(_mm_castps_si128(in), div2));
 		__m128i in_half_epu32 = _mm_cvt_psx4_u32x4_medium<FAST>(in_half);
-		return _mm_sll_epi32(in_half_epu32,1);
+		return _mm_slli_epi32(in_half_epu32,1);
 	}
-	//TODO: Safe version through div, precise version.
-//--------------------------------------double->32bit conversion--------------------------------------//	
+	//Converts float[4](in) to uint32_t[4]
+	template<int round>
+	ALWAYS_INLINE __m128i _mm_cvt_psx4_u32x4_huge(__m128 in){
+		//0.: Check template parameters
+		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_cvt_psx4_u32x4_precise_huge has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		
+		//1.: Set up constants
+		const __m128  sub_f = _mm_set1_ps   ((float)(1<<31));
+		const __m128i add_i = _mm_set1_epi32(1<<31);
+		
+		//2.: Convert
+		const __m128  in_float_i32 = _mm_sub_ps(in, sub_f);
+		const __m128i in_i32 = _mm_cvt_psx4_u32x4_medium<round>(in_float_i32);
+		return _mm_add_epi32(in_i32, add_i);
+	}
+	
+	template<int precision=PRECISE, int size=HUGE>
+	ALWAS_INLINE _mm_cvt_psx4_u32x4(__m128 in){
+		//0.: Check template parameters
+		static_assert(precision == FAST || precision == PRECISE || precision == TRUNCATE, "The rounding-mode for _mm_cvt_psx4_u32x4 has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
+		static_assert(size == SMALL || size == MEDIUM || size == BIG  || size == HUGE, "_mm_cvt_psx4_u32x4 only supports size SMALL(0), MEDIUM(1), BIG(2) or HUGE(3)!");
+#ifdef AVX512		
+		return _mm_cvtps_epu32(in);
+#else
+		UNREACHABLE();
+#endif		
+	}
+#ifndef AVX512
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<FAST    , SMALL >(in){ return _mm_cvt_psx4_u32x4_precise_small(in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<FAST    , MEDIUM>(in){ return _mm_cvt_psx4_u32x4_medium       (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<FAST    , BIG   >(in){ return _mm_cvt_psx4_u32x4_fast_huge    (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<FAST    , HUGE  >(in){ return _mm_cvt_psx4_u32x4_fast_huge    (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<TRUNCATE, SMALL >(in){ return _mm_cvt_psx4_u32x4_precise_small(in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<TRUNCATE, MEDIUM>(in){ return _mm_cvt_psx4_u32x4_medium       (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<TRUNCATE, BIG   >(in){ return _mm_cvt_psx4_u32x4_huge         (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<TRUNCATE, HUGE  >(in){ return _mm_cvt_psx4_u32x4_huge         (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<PRECISE , SMALL >(in){ return _mm_cvt_psx4_u32x4_precise_small(in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<PRECISE , MEDIUM>(in){ return _mm_cvt_psx4_u32x4_medium       (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<PRECISE , BIG   >(in){ return _mm_cvt_psx4_u32x4_huge         (in); }
+	template<> ALWAYS_INLINE _mm_cvt_psx4_u32x4<PRECISE , HUGE  >(in){ return _mm_cvt_psx4_u32x4_huge         (in); }
+#endif
+	}
+//--------------------------------------double->32bit conversion--------------------------------------//
+	//Note: Like float-16bit
 	//TODO: Import functions from link
 	//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
 	//http://stereopsis.com/sree/fpu2006.html
+	
+	int double2int1( double d ) //-2^31<=x<2^31
+	{
+   		union Cast
+   		{
+      			double d;
+      			long l;
+    		};
+   		volatile Cast c;
+   		c.d = d + 6755399441055744.0;
+   		return c.l;
+	}
 //--------------------------------------32bit->double conversion--------------------------------------//
 //--------------------------------------Reciprocals with newton-iterations--------------------------------------//
 	//https://stackoverflow.com/questions/31555260/fast-vectorized-rsqrt-and-reciprocal-with-sse-avx-depending-on-precision
