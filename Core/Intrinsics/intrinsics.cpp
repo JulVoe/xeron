@@ -139,7 +139,12 @@ namespace impl {
 	}
 #endif
 //--------------------------------------int16_t-float conversion--------------------------------------//
-	//No hack floats because of sign bit, TODO
+	//No hack floats because of sign bit.
+	//Possibilities for int16_t->float using hack-floats: (all too slow)
+	//1.: new=And old,0b011...1    | res=xor old,new    | con=xor res,constant   | unpack like for unsigned
+	//2.: sgn=_bittestandreset old | sgnsh=shift sgn,31 | con=xor sgnsh,constant |             ""
+	//Possibilities for float->int16_t using hack-floats: (all too slow)
+	//1.: use _mm_cvtpsx4_u32x4<SMALL> for 15 bit, transfer sign using _mm_sign_epi32, then use _mm_cvt2i32x4_i16x8.
 	
 	//Converts int16_t[8](in) to two float[4](lo, hi)
 	//It first converts to two int32_t[4] and then to float
@@ -247,14 +252,13 @@ namespace impl {
 //--------------------------------------int32_t->float conversion--------------------------------------//
 	//There is no good way to hack together your own float because of the sign bit. It would require
 	// 1 unpack with 0 & 2 shifts to get sign bit in place & 1 add instead of the 1 unpack
+	//Also no small version because 16bit has nohack version caused by sign bit.
 	
 	//Converts int32_t[4](v) to float[4]
 	ALWAYS_INLINE __m128 _mm_cvt_i32x4_psx4_1(const __m128i in)
 	{		
    	 	return _mm_cvtepi32_ps(in);
 	}
-	
-	//16bits: Maybe also use _mm_cvt_i16x8_psx4
 //--------------------------------------float->int32_t conversion--------------------------------------//
 	//Converts float[4](in) to int32_t[4]
 	template<int round = PRECISE>
@@ -455,6 +459,13 @@ namespace impl {
 	//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
 	//http://stereopsis.com/sree/fpu2006.html
 	
+	ALWAYS_INLINE _mm_cvt_pdx2_i32x4_1(__m128d lo, __m128d hi){
+		//0.: Constants
+		const __m128d add = _mm_set1_pd((double)((1l<<51)+(1l<<52)));
+		
+		const __m128i lo_epi64 = _mm_castpd_epi64(_mm_add_pd(lo,add));
+		const __m128i hi_epi64 = _mm_castpd_epi64(_mm_add_pd(hi,add));
+	}
 	int double2int1( double d ) //-2^31<=x<2^31
 	{
    		union Cast
