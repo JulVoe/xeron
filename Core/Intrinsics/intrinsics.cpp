@@ -1639,6 +1639,13 @@ public:
 #undef __RCPt
 
 //https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
+//TODO: https://stackoverflow.com/questions/12118910/converting-float-vector-to-16-bit-int-without-saturating
+//TODO: 32bit-64bit conversion
+//TODO: double-32bit (also __m256)
+//TODO: Split files
+//TODO: Integer division, 4 new classes
+//TODO: Fix comments and makros
+//TODO: Add _11 conversion on the top instead of #if
 //TODO: https://www.flipcode.com/archives/floattoint.txt
 
 /*************************************************************************
