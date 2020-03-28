@@ -84,7 +84,7 @@ namespace impl {
 		return _mm_cvt_2i32x4_i16x8_20(in_lo, in_hi);
 	}
 	//Converts two int32_t[4] (in_lo, in_hi) to int16_t[8]
-	//If SSE4.1 is available, truncation is used, otherwiese saturation. 
+	//If SSE4.1 is available, truncation is used, otherwiese saturation.
 	ALWAYS_INLINE __m128i _mm_cvt_2i32x4_i16x8_21(const __m128i in_lo, const __m128i in_hi) {
 #if SSE >= 41
 		const __m128i hi_epi32_shift = _mm_slli_epi32(in_hi, 16);
@@ -459,23 +459,21 @@ namespace impl {
 	//https://stackoverflow.com/questions/429632/how-to-speed-up-floating-point-to-integer-number-conversion
 	//http://stereopsis.com/sree/fpu2006.html
 	
-	ALWAYS_INLINE _mm_cvt_pdx2_i32x4_1(__m128d lo, __m128d hi){
+	ALWAYS_INLINE _mm_cvt_pdx2_u32x4_20(__m128d lo, __m128d hi){
 		//0.: Constants
 		const __m128d add = _mm_set1_pd((double)((1l<<51)+(1l<<52)));
 		
 		const __m128i lo_epi64 = _mm_castpd_epi64(_mm_add_pd(lo,add));
 		const __m128i hi_epi64 = _mm_castpd_epi64(_mm_add_pd(hi,add));
+		
+		//Shift + Blend (_20)
 	}
-	int double2int1( double d ) //-2^31<=x<2^31
-	{
-   		union Cast
-   		{
-      			double d;
-      			long l;
-    		};
-   		volatile Cast c;
-   		c.d = d + 6755399441055744.0;
-   		return c.l;
+	
+	ALWAYS_INLINE _mm_cvt_pdx2_i32x4_10(__m128d lo, __m128d hi){
+		__m128d lo_epi32 = _mm_cvtpd_epi32(lo);
+		__m128d hi_epi32 = _mm_cvtpd_epi32(hi);
+		
+		//Shift/Permute + Blend/XOR (_10, improvised pack)
 	}
 //--------------------------------------32bit->double conversion--------------------------------------//
 //--------------------------------------Reciprocals with newton-iterations--------------------------------------//
@@ -1640,6 +1638,7 @@ public:
 
 //https://stackoverflow.com/questions/42442325/how-to-divide-a-m256i-vector-by-an-integer-variable
 //TODO: https://stackoverflow.com/questions/12118910/converting-float-vector-to-16-bit-int-without-saturating
+//TODO: https://stackoverflow.com/questions/16585639/sse2-instruction-to-typecast-an-integer-register-to-short-register-and-vice-vers
 //TODO: 32bit-64bit conversion
 //TODO: double-32bit (also __m256)
 //TODO: Split files
