@@ -65,7 +65,7 @@ namespace intrin {
 		//    +========================================================================================================+
 
 		//Convert uint32_t[4](in) to float[4]
-		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_precise_small_1(const __m128i in) {
+		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_precise_23bit_1(const __m128i in) {
 			//0.: Set constants
 			const __m128i exp = _mm_set1_epi32(0x4B000000); //Exponent of 23+127
 			const __m128  rnd = _mm_set1_ps(8388608.0f); //2^23
@@ -77,14 +77,14 @@ namespace intrin {
 
 		//Converts uint32_t[4](in) to float[4]
 		//Cuts of last binary digit + 0.75ULP
-		ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_fast_huge_1(__m128i in) {
+		ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_fast_32bit_1(__m128i in) {
 			const __m128 half = _mm_cvtepi32_ps(_mm_srl_epi32(in, 1));
 			return _mm_add_ps(half, half);
 		}
 		//Converts uint32_t[4](in) to float[4]
 		//0.5ULP
 		//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
-		ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_precise_huge_1(__m128i in) {
+		ALWAYS_INLINE _m128 _mm_cvt_u32x4_psx4_precise_32bit_1(__m128i in) {
 			//0.: Constants
 			const __m128i msk_lo = _mm_set1_epi32(0xFFFF);
 			const __m128  cnst65536f = _mm_set1_ps(65536.0f);
@@ -100,7 +100,7 @@ namespace intrin {
 		//Converts uint32_t[4](v) to float[4]
 		//0.75ULP
 		//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
-		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_big_1(const __m128i v)
+		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_l32bit_1(const __m128i v)
 		{
 			const __m128i v2 = _mm_srli_epi32(v, 1);     // v2 = v / 2
 			const __m128i v1 = _mm_sub_epi32(v, v2);     // v1 = v - (v / 2)
@@ -111,7 +111,7 @@ namespace intrin {
 		//Converts uint32_t[4](v) to float[4]
 		//0.75ULP
 		//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
-		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_huge_1(const __m128i v)
+		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_32bit_1(const __m128i v)
 		{
 			const __m128i v2 = _mm_srli_epi32(v, 1);                 // v2 = v / 2
 			const __m128i v1 = _mm_and_si128(v, _mm_set1_epi32(1));  // v1 = v & 1
@@ -122,7 +122,7 @@ namespace intrin {
 		//Converts uint32_t[4](v) to float[4]
 		//0.75ULP
 		//https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
-		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_huge_2(const __m128i v)
+		ALWAYS_INLINE __m128 _mm_cvt_u32x4_psx4_truncate_32bit_2(const __m128i v)
 		{
 			//0.: Constants
 			const __m128i msk0 = _mm_set1_epi32(0x7FFFFFFF);
@@ -148,8 +148,8 @@ namespace intrin {
 #endif		
 		}
 #ifndef AVX512
-		ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST, SMALL >(in) { return _mm_cvt_u32x4_psx4_precise_small(in); }
-		ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST, MEDIUM>(in) { return _mm_cvt_u32x4_psx4_fast_huge(in); }
+		ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST, 23 >(in) { return _mm_cvt_u32x4_psx4_precise_small(in); }
+		ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST, 32>(in) { return _mm_cvt_u32x4_psx4_fast_huge(in); }
 		ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST, BIG   >(in) { return _mm_cvt_u32x4_psx4_fast_huge(in); }
 		ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<FAST, HUGE  >(in) { return _mm_cvt_u32x4_psx4_fast_huge(in); }
 		ALWAYS_INLINE template<> __m128 _mm_cvt_u32x4_psx4<TRUNCATE, SMALL >(in) { return _mm_cvt_u32x4_psx4_precise_small(in); }

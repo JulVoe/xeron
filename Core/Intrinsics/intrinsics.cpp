@@ -7,8 +7,9 @@ namespace intrin {
  *******************************/
 	
 //Integer division. Don't mess with the values or error messages will be wrong
-enum { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possible, FAST=allows functions to sacrifice some precision for speed, TRUNCATE=same behaviour as sisd integer division.
-enum { SMALL = 0, MEDIUM = 1, BIG = 2, HUGE = 3 }; //HUGE=as big as possible, BIG:32bit, aber nicht UINT_MAX, Medium:31bit, SMALL:23bit
+enum ROUNDING_MODE { FAST = 0, TRUNCATE = 1, PRECISE = 2 }; //PRECISE=highest precision possible, FAST=allows functions to sacrifice some precision for speed, TRUNCATE=same behaviour as sisd integer division.
+typedef BITNUM short; //Number of set bits in a number. When a type is signed, only n-1 bits are data-bits.
+enum { SMALL = 23, MEDIUM = 31, BIG = 32-epsilon, HUGE = 32 }; //HUGE=as big as possible, BIG:32bit, aber nicht UINT_MAX, Medium:31bit, SMALL:23bit
 	
 namespace impl {
 //--------------------------------------Reciprocals with newton-iterations--------------------------------------//
@@ -56,10 +57,9 @@ namespace impl {
 	//Divides a_epi16 by b_epi16 elementwise. If AVX2 is available, it can also return the result as floats.
 	//Note: Correctness has to be verified when use_rcp is true
 	//Note: FAST only differs from the rest, if use_rcp is true
-	template<int round, bool use_rcp, typename T = __m128i>
+	template<ROUNDING_MODE round, bool use_rcp, typename T = __m128i>
 	ALWAYS_INLINE T _mm_div_epi16_impl(const __m128i &a_epi16, const __m128i &b_epi16) {
 		//0.: Are the template parameters valid?
-		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epi16_impl has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
 		static_assert(std::is_same<T,__m128i>{} || std::is_same<T,__m256>{}, "_mm_div_epi16_impl can only return either __m128i or __m256!");
 		static_assert(!(use_rcp && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 #if AVX >= 2
@@ -122,10 +122,9 @@ namespace impl {
 	//Divides a_epu16 by b_epu16 elementwise. If AVX2 is available, it can also return the result as floats.
 	//Note: Correctness has to be verified, if use_rcp is true
 	//Note: FAST only differs from the rest, if use_rcp is true
-	template<int round, bool use_rcp, typename T = __m128i>
+	template<ROUNDING_MODE round, bool use_rcp, typename T = __m128i>
 	ALWAYS_INLINE T _mm_div_epu16_impl(const __m128i &a_epu16, const __m128i &b_epu16) { 
 		//0.: Are the template parameters valid?
-		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_div_epu16_rcp has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
 		static_assert(std::is_same<T,__m128i>{} || std::is_same<T,__m256>{}, "_mm_div_epu16_impl can only return either __m128i or __m256!");
 		static_assert(!(use_rcp && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 #if AVX >= 2
@@ -190,10 +189,9 @@ namespace impl {
 	//Note: Very fast. Precise for a<=2^24, if !(round==FAST&&use_rcp). From there on inprecise for small b.
 	//Note: FAST only differs from the other modes, if use_rcp is true.
 	//Note: If use_rcp is true, the correctness of the result has to be verified.
-	template<int round, bool use_rcp, typename T = __m128i>
+	template<ROUNDING_MODE round, bool use_rcp, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi32_small(__m128i a, __m128i b) {
 		//0.: Are the template parameters valid?
-		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_small has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
 		static_assert(!(use_rcp && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{}, "_mm_idiv_epi32_small can only return either __m128i or __m128!");
 
@@ -224,10 +222,9 @@ namespace impl {
 	}
 	//Divides a by b elementwise.
 	//Converts a and b to 256-double vectors and divides them. Very precise.
-	template<int round, typename T = __m128i>
+	template<ROUNDING_MODE round, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi32_avx(__m128i a, __m128i b) {
 		//0.: Are the template parameters valid?
-		static_assert(round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_avx has to be either TRUNCATE(1) or PRECISE(2)!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{} || std::is_same<T, __m256d>{}, "_mm_idiv_epi32_avx can only return either __m128i, __m128 or __m256d!");
 
 		//1.: Computation
@@ -256,10 +253,9 @@ namespace impl {
 	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
 	//Note: rcp: 0=div-div, 1=div-rcp, 2=rcp-div, 3=rcp-rcp. 
 	//Note: Fast has 0 Newton-iterations, otherwise 1. (0f course only makes a difference, if rcp!=0)
-	template<int round, int rcp, typename T = __m128i>
+	template<ROUNDING_MODE round, int rcp, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi32_split(__m128i a, __m128i b) {
 		//0.: Are the template parameters valid?
-		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epi32_split has to be either FAST(0), TRUNCATE(1) or PRECISE(2)!");
 		static_assert(rcp==0 || rcp==1 || rcp==2 || rcp==3, "_mm_idiv_epi32_split only accepts rcp 0 to 3");
 		static_assert(!(rcp != 0 && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{}, "_mm_idiv_epi32_split can only return either __m128i or __m128!");
@@ -307,10 +303,9 @@ namespace impl {
 	//Divides a by b elementwise.
 	//Splits a up into two parts which will fit into a float without loss of accuracy. Divides them and add the result
 	//rcp: 0=div-div, 1=div-rcp, 2=rcp-div, 3=rcp-rcp. Fast has 0 Newton-iterations, otherwise 1.
-	template<int round, int rcp, typename T = __m128i>
+	template<ROUNDING_MODE round, int rcp, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epu32_split(__m128i a, __m128i b) {
 		//0.: Are the template parameters valid?
-		static_assert(round == FAST || round == PRECISE || round == TRUNCATE, "The rounding-mode for _mm_idiv_epu32_split has to be either TRUNCATE(1) or PRECISE(2)!");
 		static_assert(rcp==0 || rcp==1 || rcp==2 || rcp==3, "_mm_idiv_epu32_split only accepts rcp 0 to 3");
 		static_assert(!(rcp != 0 && round == PRECISE), "If you want a precise division, don't use reciprocals!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{}, "_mm_idiv_epu32_split can only return either __m128i or __m128!");
@@ -368,9 +363,8 @@ namespace impl {
 	
 //--------------------------------------Interface for integer division--------------------------------------//	
 	//Vector-equivalent of "return (T)a/(T)b;"
-	template<int precision = PRECISE, typename T = __m128i>
+	template<ROUNDING_MODE precision = PRECISE, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi16(__m128i a, __m128i b) {
-		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epi16 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
 #if AVX>=2 //Otherwise, two __m128 have to be returned wich would not work with this signature		
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m256>{}, "_mm_idiv_epi16 can only return either __m128i or __m256!");
 #else
@@ -386,9 +380,8 @@ namespace impl {
 	ALWAYS_INLINE template<> __m256  _mm_idiv_epi16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epi16_impl<TRUNCATE, USE_RCP, __m256 >(a, b); }
 	
 	//Vector-equivalent of "return (T)a/(T)b;"
-	template<int precision = PRECISE, typename T = __m128i>
+	template<ROUNDING_MODE precision = PRECISE, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epu16(__m128i a, __m128i b) {
-		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epu16 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
 #if AVX>=2 //Otherwise, two __m128 have to be returned wich would not work with this signature		
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m256>{}, "_mm_idiv_epu16 can only return either __m128i or __m256!");
 #else
@@ -404,41 +397,45 @@ namespace impl {
 	ALWAYS_INLINE template<> __m256  _mm_idiv_epu16<TRUNCATE, __m256 >(__m128i a, __m128i b) { return _mm_div_epu16_impl<TRUNCATE, USE_RCP, __m256 >(a, b); }
 
 	//Vector-equivalent of "return (T)a/(T)b;"
-	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
+	template<ROUNDING_MODE round = PRECISE, BITNUM size = 32, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epi32(__m128i a, __m128i b) {
-		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epi32 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
-		static_assert(size == SMALL || size == MEDIUM || size == BIG , "_mm_idiv_epi32 only supports size SMALL(0), MEDIUM(1) or BIG(2)!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{} || std::is_same<T, __m256d>{}, "_mm_idiv_epi32 can only return either __m128i, __m128 or __m256d!");
-		UNREACHABLE();
+		if constexpr (std::is_same<T, __m256d>{}) {
+			return _mm_idiv_epi32_avx<precision, __m256d>(a, b);
+		}
+		else if constexpr (std::is_same<T, __m128i>{}) {
+				          if (size <= 23 && round == PRECISE ) { return return _mm_idiv_epi32_small      <PRECISE , 0     , __m128i>(a, b); }
+					 else if (size <= 23 && round == FAST    ) { return return _mm_idiv_epi32_small      <FAST    , __RCPf, __m128i>(a, b); }
+					 else if (size <= 23 && round == TRUNCATE) { return return _mm_idiv_epi32_small      <TRUNCATE, __RCPt, __m128i>(a, b); }
+					 else if (              round == PRECISE ) { return return _mm_idiv_epi32_precise_int<PRECISE ,         __m128i>(a, b); }
+					 else if (              round == FAST    ) { return return _mm_idiv_epi32_small      <FAST    , __RCPf, __m128i>(a, b); }
+					 else if (              round == TRUNCATE) { return return _mm_idiv_epi32_precise_int<TRUNCATE,         __m128i>(a, b); }
+		}
+		else if constexpr (std::is_same<T, __m128>{}) {
+			     if (size <= 23 && round == PRECISE ) { return return _mm_idiv_epi32_small        <PRECISE , 0     , __m128i>(a, b); }
+			else if (size <= 23 && round == FAST    ) { return return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128i>(a, b); }
+			else if (size <= 23 && round == TRUNCATE) { return return _mm_idiv_epi32_small        <TRUNCATE, __RCPt, __m128i>(a, b); }
+			else if (              round == PRECISE ) { return return _mm_idiv_epi32_precise_float<PRECISE ,         __m128i>(a, b); }
+			else if (              round == FAST    ) { return return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128i>(a, b); }
+			else if (              round == TRUNCATE) { return return _mm_idiv_epi32_precise_float<TRUNCATE,         __m128i>(a, b); }
+		}
+		else if constexpr (std::is_same<T, __m128>{}) {
+			return _mm_idiv_epi32_avx<round, __m256d>(a, b);
+		}
+		else {
+			UNREACHABLE;
+		}
 	}
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <PRECISE ,         __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<PRECISE,  SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE ,  0    , __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<FAST,     SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_int  <TRUNCATE,         __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128i _mm_idiv_epi32<TRUNCATE, SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __RCPt, __m128i>(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<PRECISE ,         __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<PRECISE,  SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <PRECISE , 0     , __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<FAST,     SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <FAST    , __RCPf, __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, BIG,   __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_precise_float<TRUNCATE,         __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m128  _mm_idiv_epi32<TRUNCATE, SMALL, __m128 >(__m128i a, __m128i b) { return _mm_idiv_epi32_small        <TRUNCATE, __RCPt, __m128 >(a, b); }
-	ALWAYS_INLINE template<> __m256d _mm_idiv_epi32<PRECISE,  BIG,   __m256d>(__m128i a, __m128i b) { return _mm_idiv_epi32_avx          <PRECISE ,         __m256d>(a, b); }
-	ALWAYS_INLINE template<> __m256d _mm_idiv_epi32<PRECISE,  SMALL, __m256d>(__m128i a, __m128i b) { return _mm_idiv_epi32_avx          <PRECISE ,         __m256d>(a, b); }
-	ALWAYS_INLINE template<> __m256d _mm_idiv_epi32<FAST,     BIG,   __m256d>(__m128i a, __m128i b) { return _mm_idiv_epi32_avx          <PRECISE ,         __m256d>(a, b); }
-	ALWAYS_INLINE template<> __m256d _mm_idiv_epi32<FAST,     SMALL, __m256d>(__m128i a, __m128i b) { return _mm_idiv_epi32_avx          <PRECISE ,         __m256d>(a, b); }
-	ALWAYS_INLINE template<> __m256d _mm_idiv_epi32<TRUNCATE, BIG,   __m256d>(__m128i a, __m128i b) { return _mm_idiv_epi32_avx          <TRUNCATE,         __m256d>(a, b); }
-	ALWAYS_INLINE template<> __m256d _mm_idiv_epi32<TRUNCATE, SMALL, __m256d>(__m128i a, __m128i b) { return _mm_idiv_epi32_avx          <TRUNCATE,         __m256d>(a, b); }
 	
 	//Vector-equivalent of "return (T)a/(T)b;"
-	template<int precision = PRECISE, int size = BIG, typename T = __m128i>
+	template<ROUNDING_MODE precision = PRECISE, BITNUM size = BIG, typename T = __m128i>
 	ALWAYS_INLINE T _mm_idiv_epu32(__m128i a, __m128i b) {
-		static_assert(precision == PRECISE || precision == FAST || precision == TRUNCATE, "_mm_idiv_epu32 only supports precision FAST(0), TRUNCATE(1) and PRECISE(2)!");
 		static_assert(size == SMALL || size == MEDIUM || size == BIG , "_mm_idiv_epu32 only supports size SMALL(0), MEDIUM(1) or BIG(2)!");
 		static_assert(std::is_same<T, __m128i>{} || std::is_same<T, __m128>{} || std::is_same<T, __m256d>{}, "_mm_idiv_epu32 can only return either __m128i, __m128 or __m256d!");
 		UNREACHABLE();
 	}
 	//TODO: use _mm_idiv_epi32_small for SMALL
+	//TODO: Update to syntax above
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu32<PRECISE,  BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epu32_split<PRECISE,  __m128i, __RCP, false>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu32<PRECISE,  SMALL, __m128i>(__m128i a, __m128i b) { return _mm_idiv_epu32_split<PRECISE,  __m128i, __RCP, false>(a, b); }
 	ALWAYS_INLINE template<> __m128i _mm_idiv_epu32<FAST,     BIG  , __m128i>(__m128i a, __m128i b) { return _mm_idiv_epu32_split<PRECISE,  __m128i, 3    , true >(a, b); }
