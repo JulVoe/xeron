@@ -90,8 +90,8 @@ namespace intrin {
 		//Note: Hackfloat version
 		//Note: in=|hi|hi|lo|lo|
 		ALWAYS_INLINE void _mm_cvt_i32x4_2pdx2_1(__m128i in, __m128d& lo, __m128d& hi) {
-			const __m128i exp      = _mm_sign(_mm_set1_epi32(1075<<20), in); //sign bit and exponent(1023+52)
-			const __m128d leading1 =          _mm_set1_ps   (1d  <<52)     ; //2^52, leading 1 is implied
+			const __m128i exp      = _mm_sign(_mm_set1_epi32(1075ll<<52), in); //sign bit and exponent(1023+52)
+			const __m128d leading1 =          _mm_set1_pd   (1ll   <<52)     ; //2^52, leading 1 is implied
 
 			const __m128d lo_hackfloat = _mm_castepi64_pd(_mm_unpacklo_epi32(in, exp)); //Hackfloat, without implied leading one
 			const __m128d hi_hackfloat = _mm_castepi64_pd(_mm_unpackhi_epi32(in, exp)); //Hackfloat, without implied leading one
@@ -116,8 +116,8 @@ namespace intrin {
 		//Note: Same as _mm_cvt_i32x4_2pdx2_1 but without _mm_sign
 		//Note: in=|hi|hi|lo|lo|
 		ALWAYS_INLINE void _mm_cvt_u32x4_2pdx2_1(__m128i in, __m128d& lo, __m128d& hi) {
-			const __m128i exp      = _mm_set1_epi32(1075 << 20); //sign bit and exponent(1023+52)
-			const __m128d leading1 = _mm_set1_ps   (1d   << 52); //2^52, leading 1 is implied
+			const __m128i exp      = _mm_set1_epi32(1075ll << 52); //sign bit and exponent(1023+52)
+			const __m128d leading1 = _mm_set1_pd   (1ll    << 52); //2^52, leading 1 is implied
 
 			const __m128d lo_hackfloat = _mm_castepi64_pd(_mm_unpacklo_epi32(in, exp)); //Hackfloat, without implied leading one
 			const __m128d hi_hackfloat = _mm_castepi64_pd(_mm_unpackhi_epi32(in, exp)); //Hackfloat, without implied leading one
