@@ -1,2 +1,2 @@
 # xeron
-Highest performance c++ utility library
+High performance c++ utility library
